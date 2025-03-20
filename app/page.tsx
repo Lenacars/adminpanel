@@ -1,31 +1,43 @@
-import { supabase } from "@/lib/supabase"
+import { checkSupabaseConnection } from "@/lib/supabase"
 
 export default async function Home() {
-  // Supabase'den verileri çek
-  const { data, error } = await supabase.from("Araclar").select("*").limit(100)
-
-  if (error) {
-    return <div>Veri çekilirken bir hata oluştu</div>
-  }
+  // Supabase bağlantısını kontrol et
+  const connectionStatus = await checkSupabaseConnection()
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Araçlar Listesi</h1>
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-6">Admin Panel</h1>
 
-      {data && data.length > 0 ? (
-        <div>
-          {data.map((arac, index) => (
-            <div key={index} className="border p-4 mb-4 rounded">
-              <pre>{JSON.stringify(arac, null, 2)}</pre>
+      <div className={`p-4 rounded mb-6 ${connectionStatus.connected ? "bg-green-100" : "bg-red-100"}`}>
+        <h2 className="font-bold">Supabase Bağlantı Durumu</h2>
+        <p>{connectionStatus.message}</p>
+
+        <div className="mt-2 text-sm">
+          <p>Supabase URL: {connectionStatus.url}</p>
+          <p>Supabase Anahtar: {connectionStatus.keyExists ? "Mevcut" : "Eksik"}</p>
+
+          {connectionStatus.envVars && (
+            <div className="mt-4 p-4 bg-gray-100 rounded">
+              <h3 className="font-bold mb-2">Çevre Değişkenleri</h3>
+              {Object.entries(connectionStatus.envVars).map(([key, value]) => (
+                <p key={key}>
+                  {key}: {value}
+                </p>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : (
-        <p>Henüz kayıtlı araç bulunmamaktadır.</p>
-      )}
+          )}
 
-      <div className="mt-4">
-        <a href="/upload" className="bg-green-500 text-white py-2 px-4 rounded">
+          {connectionStatus.error && (
+            <div className="mt-4 p-4 bg-red-50 rounded">
+              <h3 className="font-bold mb-2">Hata Detayı</h3>
+              <p>{connectionStatus.error}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <a href="/upload" className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
           CSV Yükle
         </a>
       </div>

@@ -1,11 +1,14 @@
+// lenacars projesinde (frontend)
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
 
-export default function UploadCSV() {
-  const router = useRouter()
+import { useState } from "react"
+
+// API URL'sini çevre değişkeninden al veya varsayılan değeri kullan
+const API_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL || "https://adminpanel-green-two.vercel.app"
+
+export default function CSVUploader() {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
@@ -33,32 +36,24 @@ export default function UploadCSV() {
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await fetch("/api/upload-csv", {
+      const response = await fetch(`${API_URL}/api/upload-csv`, {
         method: "POST",
         body: formData,
       })
 
-      let result
-      const responseText = await response.text()
-
-      try {
-        result = JSON.parse(responseText)
-      } catch (jsonError) {
-        console.error("JSON parse hatası. Sunucu yanıtı:", responseText)
-        throw new Error("Sunucu yanıtı geçerli bir JSON formatında değil")
-      }
+      const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result?.error || `Sunucu hatası: ${response.status}`)
+        throw new Error(result.error || `Sunucu hatası: ${response.status}`)
       }
 
       setMessage(result.message)
-      setTimeout(() => {
-        router.push("/")
-        router.refresh()
-      }, 2000)
+      setFile(null)
+
+      // Form elemanını sıfırla
+      const fileInput = document.getElementById("csv-file") as HTMLInputElement
+      if (fileInput) fileInput.value = ""
     } catch (error: any) {
-      console.error("Hata detayı:", error)
       setError(`Hata: ${error.message}`)
     } finally {
       setLoading(false)
@@ -72,9 +67,16 @@ export default function UploadCSV() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block mb-1">CSV Dosyası</label>
-          <input type="file" accept=".csv" onChange={handleFileChange} className="w-full p-2 border rounded" required />
+          <input
+            id="csv-file"
+            type="file"
+            accept=".csv"
+            onChange={handleFileChange}
+            className="w-full p-2 border rounded"
+            required
+          />
           <p className="text-sm text-gray-500 mt-1">
-            CSV dosyanızın ilk satırı, tablonuzdaki sütun adlarıyla eşleşmelidir.
+            CSV dosyanızın ilk satırı, tablodaki sütun adlarıyla eşleşmelidir.
           </p>
         </div>
 
