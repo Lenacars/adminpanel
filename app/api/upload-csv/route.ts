@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     
     // Verileri Supabase'e ekle
     const { data, error } = await supabase
-      .from('your_table_name') // Tablonuzun adını buraya yazın
+      .from('Araclar') // Tablonuzun adını buraya yazın
       .insert(records)
     
     if (error) {
