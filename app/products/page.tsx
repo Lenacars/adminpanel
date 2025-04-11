@@ -1,31 +1,66 @@
-import { Suspense } from "react"
-import { getProducts, getProductCategories } from "@/lib/woocommerce"
-import ProductsTable from "./products-table"
+"use client"
+
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import Papa from "papaparse"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
-export const dynamic = "force-dynamic" // Her istekte yeniden oluştur
+interface Variation {
+  sku?: string
+  fuel?: string
+  transmission?: string
+  color?: string
+  status: string
+}
 
-export default async function ProductsPage() {
-  // Ürünleri ve kategorileri paralel olarak getir
-  const [productsData, categoriesData] = await Promise.all([
-    getProducts().catch((error) => {
-      console.error("Ürünler getirilirken hata oluştu:", error)
-      return { products: [] }
-    }),
-    getProductCategories().catch((error) => {
-      console.error("Kategoriler getirilirken hata oluştu:", error)
-      return []
-    }),
-  ])
+interface GroupedProduct {
+  name: string
+  variations: Variation[]
+}
 
-  // Kategori ID'lerini isimlere eşleyen bir harita oluştur
-  const categoryMap = new Map()
-  if (Array.isArray(categoriesData)) {
-    categoriesData.forEach((category: any) => {
-      categoryMap.set(category.id, category.name)
-    })
-  }
+export default function ProductsPage() {
+  const [productsData, setProductsData] = useState<GroupedProduct[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/products.csv")
+      .then((res) => res.text())
+      .then((csvText) => {
+        const result = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+        })
+
+        const grouped: Record<string, GroupedProduct> = {}
+
+        result.data.forEach((row: any) => {
+          const name = row["İsim"]
+          const variation: Variation = {
+            sku: row["Stok kodu (SKU)"],
+            fuel: row["Nitelik 8 değer(ler)i"],
+            transmission: row["Nitelik 3 değer(ler)i"],
+            color: row["Nitelik 2 değer(ler)i"],
+            status: row["Yayımlanmış"]
+          }
+
+          if (!grouped[name]) {
+            grouped[name] = {
+              name,
+              variations: []
+            }
+          }
+          grouped[name].variations.push(variation)
+        })
+
+        setProductsData(Object.values(grouped))
+      })
+      .catch((err) => {
+        console.error("CSV okunamadı:", err)
+        setError("Ürün verisi yüklenemedi.")
+      })
+  }, [])
 
   return (
     <div className="container mx-auto py-6">
@@ -37,35 +72,39 @@ export default async function ProductsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle>Toplam Ürünler</CardTitle>
-            <CardDescription>Sistemdeki tüm ürünler</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{Array.isArray(productsData) ? productsData.length : "Yükleniyor..."}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Aktif Ürünler</CardTitle>
-            <CardDescription>Satışta olan ürünler</CardDescription>
+            <CardDescription>Gruplanmış ürün sayısı</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {Array.isArray(productsData)
-                ? productsData.filter((product: any) => product.status === "publish").length
-                : "Yükleniyor..."}
+              {productsData.length || "Yükleniyor..."}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Kategoriler</CardTitle>
-            <CardDescription>Toplam ürün kategorileri</CardDescription>
+            <CardTitle>Toplam Varyasyon</CardTitle>
+            <CardDescription>Varyasyon sayısı</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {Array.isArray(categoriesData) ? categoriesData.length : "Yükleniyor..."}
+              {productsData.reduce((sum, p) => sum + p.variations.length, 0)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Yakıt Türleri</CardTitle>
+            <CardDescription>Farklı yakıt seçenekleri</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {
+                new Set(
+                  productsData.flatMap((p) => p.variations.map((v) => v.fuel).filter(Boolean))
+                ).size
+              }
             </p>
           </CardContent>
         </Card>
@@ -74,40 +113,53 @@ export default async function ProductsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Ürün Listesi</CardTitle>
-          <CardDescription>WooCommerce'den alınan tüm ürünlerin listesi</CardDescription>
+          <CardDescription>Varyasyonlarla birlikte ürünler</CardDescription>
         </CardHeader>
         <CardContent>
-          <Suspense fallback={<ProductsTableSkeleton />}>
-            <ProductsTable initialProducts={productsData} categoryMap={categoryMap} />
-          </Suspense>
+          {error ? (
+            <p className="text-red-500">{error}</p>
+          ) : (
+            <Accordion type="multiple" className="w-full">
+              {productsData.map((product, i) => (
+                <AccordionItem key={i} value={`item-${i}`}>
+                  <AccordionTrigger className="text-left text-base font-medium">
+                    <Link
+                      href={`/products/edit/${encodeURIComponent(product.name)}`}
+                      className="underline hover:text-primary"
+                    >
+                      {product.name}
+                    </Link>{" "}({product.variations.length} varyasyon)
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <table className="w-full text-sm border mt-2">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border px-2 py-1">SKU</th>
+                          <th className="border px-2 py-1">Yakıt</th>
+                          <th className="border px-2 py-1">Şanzıman</th>
+                          <th className="border px-2 py-1">Renk</th>
+                          <th className="border px-2 py-1">Durum</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {product.variations.map((v, j) => (
+                          <tr key={j}>
+                            <td className="border px-2 py-1">{v.sku || "-"}</td>
+                            <td className="border px-2 py-1">{v.fuel || "-"}</td>
+                            <td className="border px-2 py-1">{v.transmission || "-"}</td>
+                            <td className="border px-2 py-1">{v.color || "-"}</td>
+                            <td className="border px-2 py-1">{v.status === "1" ? "Yayında" : "Pasif"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
         </CardContent>
       </Card>
     </div>
   )
 }
-
-function ProductsTableSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between">
-        <Skeleton className="h-10 w-[250px]" />
-        <Skeleton className="h-10 w-[120px]" />
-      </div>
-      <div className="border rounded-md">
-        <div className="h-12 px-4 border-b flex items-center bg-muted/50">
-          <Skeleton className="h-4 w-[30%]" />
-        </div>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-16 px-4 border-b flex items-center">
-            <Skeleton className="h-4 w-full" />
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center justify-end space-x-2">
-        <Skeleton className="h-10 w-[100px]" />
-        <Skeleton className="h-10 w-[70px]" />
-      </div>
-    </div>
-  )
-}
-

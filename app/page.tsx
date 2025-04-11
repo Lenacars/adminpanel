@@ -21,7 +21,6 @@ export default function Home() {
             <Settings className="mr-2 h-4 w-4" />
             Ayarlar
           </Button>
-          <Button size="sm">Giriş Yap</Button>
         </div>
       </header>
       <main className="flex flex-1">
@@ -140,4 +139,3 @@ export default function Home() {
     </div>
   )
 }
-
