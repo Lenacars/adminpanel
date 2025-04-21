@@ -1,6 +1,6 @@
 // app/products/edit/[id]/page.tsx
-import EditProductPage from "../../../../components/EditProductPage";
-import { supabase } from "../../../../lib/supabase";
+import EditProductPage from "@/components/EditProductPage";
+import { supabase } from "@/lib/supabase";
 import { notFound } from "next/navigation";
 
 interface Props {
