@@ -49,6 +49,11 @@ export default function Sidebar() {
           Ayarlar
         </Link>
 
+        <Link href="/media" className="flex items-center p-3 rounded hover:bg-gray-200">
+          <span className="mr-3">🖼️</span>
+          Ortam Kütüphanesi
+        </Link>
+
         <Link href="/upload" className="flex items-center p-3 rounded bg-blue-100 text-blue-700 hover:bg-blue-200">
           <span className="mr-3">📄</span>
           CSV Yükle
