@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data: products, error } = await supabase
       .from("Araclar")
-      .select("*, variations(*)"); // ilişkili varyasyonları getir
+      .select("*"); // sadece ürün verileri çekiliyor, variations çıkarıldı
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
