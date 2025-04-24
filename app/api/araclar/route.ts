@@ -1,3 +1,4 @@
+
 import { type NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { corsHeaders } from "@/lib/cors";
@@ -6,13 +7,19 @@ export async function GET(request: NextRequest) {
   try {
     const { data: products, error } = await supabase
       .from("Araclar")
-      .select("*"); // sadece ürün verileri çekiliyor, variations çıkarıldı
+      .select("*");
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 
-    return NextResponse.json({ data: products }, { headers: corsHeaders });
+    const formatted = products.map((item) => ({
+      ...item,
+      cover_image: item.cover_image?.replace(/^\/+/, ""),
+      gallery_images: item.gallery_images?.map((img: string) => img.replace(/^\/+/, "")),
+    }));
+
+    return NextResponse.json({ data: formatted }, { headers: corsHeaders });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
   }
