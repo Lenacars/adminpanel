@@ -6,14 +6,13 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-// ** Menü öğeleri için tipleri tanımlayalım (Implicit 'any' hatasını düzeltmek için) **
 interface MenuItem {
   label: string;
-  href?: string; // Eğer alt öğeleri varsa href opsiyonel olabilir
+  href?: string;
   icon?: string;
   roles: string[];
-  children?: ChildMenuItem[]; // Eğer alt öğeleri varsa
-  highlight?: boolean; // extraMenuItems için eklenen özellik
+  children?: ChildMenuItem[];
+  highlight?: boolean;
 }
 
 interface ChildMenuItem {
@@ -21,7 +20,6 @@ interface ChildMenuItem {
   href: string;
 }
 
-// ** Dizi tanımlarını buraya, fonksiyonun dışına ekleyin **
 const menuItems: MenuItem[] = [
   {
     label: "Dashboard",
@@ -57,9 +55,15 @@ const menuItems: MenuItem[] = [
     icon: "🛒",
     roles: ["superadmin", "editor"],
   },
+  {
+    label: "Aktivite Logları",
+    href: "/calisan-aktiviteleri",
+    icon: "📝",
+    roles: ["superadmin"],
+  },
 ];
 
-const pageMenu: ChildMenuItem[] = [ // Sadece label ve href olduğu için ChildMenuItem tipini kullandık
+const pageMenu: ChildMenuItem[] = [
   { label: "Tüm Sayfalar", href: "/pages" },
   { label: "Yeni Ekle", href: "/pages/new" },
   { label: "Taslaklar", href: "/pages?status=draft" },
@@ -67,8 +71,8 @@ const pageMenu: ChildMenuItem[] = [ // Sadece label ve href olduğu için ChildM
   { label: "Menü Yönetimi", href: "/menu" },
 ];
 
-const extraMenuItems: MenuItem[] = [ // highlight özelliği olduğu için MenuItem tipini kullandık
-  { label: "Analitik", href: "/analitik", icon: "📈", roles: [] }, // roles boş veya ihtiyaca göre ayarlanabilir
+const extraMenuItems: MenuItem[] = [
+  { label: "Analitik", href: "/analitik", icon: "📈", roles: [] },
   { label: "Mesajlar", href: "/mesajlar", icon: "💬", roles: [] },
   { label: "Ayarlar", href: "/ayarlar", icon: "⚙️", roles: [] },
   { label: "Ortam Kütüphanesi", href: "/media", icon: "🖼️", roles: [] },
@@ -77,13 +81,10 @@ const extraMenuItems: MenuItem[] = [ // highlight özelliği olduğu için MenuI
 
 export default function Sidebar() {
   const pathname = usePathname();
-
-  // **** Hook'ları koşullu dönüşten önce, en üst seviyede çağırın ****
   const [rol, setRol] = useState<string | null>(null);
   const [openPages, setOpenPages] = useState(true);
   const [openUsers, setOpenUsers] = useState(true);
 
-  // ROL çekme işlemi - Şimdi her zaman çağrılıyor
   useEffect(() => {
     async function fetchRole() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -93,36 +94,20 @@ export default function Sidebar() {
           .select("rol")
           .eq("auth_user_id", user.id)
           .single();
-
         if (!error && data) {
           setRol(data.rol);
         } else {
-           // Hata durumunda veya rol bulunamazsa rolü null yap
-           console.error("Rol bulunamadı veya çekilemedi", error);
-           setRol(null);
+          console.error("Rol bulunamadı", error);
+          setRol(null);
         }
       } else {
-         // Kullanıcı yoksa rolü null yap
-         setRol(null);
+        setRol(null);
       }
     }
-
     fetchRole();
-  }, []); // Dependency array boş bırakıldı, component mount olduğunda bir kere çalışır.
-          // Eğer kullanıcının auth durumu değiştiğinde tekrar çalışmasını isterseniz,
-          // supabase.auth.onAuthStateChange'i kullanmanız veya user'ı dependency'ye eklemeniz gerekebilir.
+  }, []);
 
-
-  // **** Koşullu render mantığı şimdi Hook çağrılarından sonra ****
-  if (pathname === "/login") {
-    return null;
-  }
-
-  // Rol bilgisi yüklenene kadar bir loading durumu gösterebilirsiniz (isteğe bağlı)
-  // if (rol === null) {
-  //   return <div>Sidebar Yükleniyor...</div>;
-  // }
-
+  if (pathname === "/login") return null;
 
   return (
     <aside className="h-screen bg-[#6A3C96] w-64 p-4 text-sm text-white">
@@ -138,10 +123,8 @@ export default function Sidebar() {
 
       <nav className="space-y-2">
         {menuItems.map((item) => {
-           // Rol bilgisi gelene kadar menü öğelerini gösterme
-           if (rol === null) return null;
-           // Eğer item'ın roles'i arasında kullanıcının rolü yoksa gösterme
-           if (!item.roles.includes(rol)) return null;
+          if (rol === null) return null;
+          if (!item.roles.includes(rol)) return null;
 
           if (item.children) {
             return (
@@ -173,8 +156,8 @@ export default function Sidebar() {
 
           return (
             <Link
-              key={item.href} // Eğer href yoksa burada sorun yaşanabilir, tip tanımı href'i opsiyonel yaptı
-              href={item.href!} // href'in burada kesinlikle olacağını belirtmek için ! kullanıldı veya koşul eklenebilir
+              key={item.href}
+              href={item.href!}
               className="flex items-center gap-2 px-4 py-2 rounded-md hover:bg-[#5b3482] transition"
             >
               <span>{item.icon}</span>
@@ -183,8 +166,7 @@ export default function Sidebar() {
           );
         })}
 
-        {/* Sayfalar menüsü sadece superadmin görsün */}
-        {rol === "superadmin" && ( // Rol bilgisi yüklendikten sonra kontrol edilecek
+        {rol === "superadmin" && (
           <div>
             <button
               onClick={() => setOpenPages(!openPages)}
@@ -196,7 +178,7 @@ export default function Sidebar() {
             </button>
             {openPages && (
               <div className="ml-4 mt-1 space-y-1">
-                {pageMenu.map((item) => ( // Burada item aslında ChildMenuItem tipinde
+                {pageMenu.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -210,10 +192,10 @@ export default function Sidebar() {
           </div>
         )}
 
-        {extraMenuItems.map((item) => ( // Burada item MenuItem tipinde
+        {extraMenuItems.map((item) => (
           <Link
             key={item.href}
-            href={item.href!} // href'in burada kesinlikle olacağını belirtmek için ! kullanıldı veya koşul eklenebilir
+            href={item.href!}
             className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${
               item.highlight
                 ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
@@ -225,15 +207,10 @@ export default function Sidebar() {
           </Link>
         ))}
 
-        {/* Çıkış butonu */}
         <button
           onClick={async () => {
             await supabase.auth.signOut();
-            // Next.js App Router'da yönlendirme için useRouter kullanmak daha iyidir
-            // import { useRouter } from 'next/navigation';
-            // const router = useRouter();
-            // router.push('/login');
-             window.location.href = "/login"; // Bu da çalışır ama client-side navigasyon için useRouter tercih edilir.
+            window.location.href = "/login";
           }}
           className="w-full mt-4 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
         >
