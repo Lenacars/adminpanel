@@ -1,27 +1,33 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-export async function logActivity(islem: string) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  if (!user) return;
-
-  const { data: calisan } = await supabase
-    .from("calisanlar")
-    .select("ad, soyad, rol")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  if (!calisan) return;
-
-  await supabase.from("calisan_aktiviteleri").insert([
-    {
-      user_id: user.id,
-      email: user.email,
-      full_name: `${calisan.ad} ${calisan.soyad}`,
-      rol: calisan.rol,
-      islem,
-    },
-  ]);
+export async function logActivity({
+  user_id,
+  email,
+  full_name,
+  rol,
+  islem,
+}: {
+  user_id: string;
+  email: string;
+  full_name: string;
+  rol: string;
+  islem: string;
+}) {
+  try {
+    await supabase.from("calisan_aktiviteleri").insert([
+      {
+        user_id,
+        email,
+        full_name,
+        rol,
+        islem,
+      },
+    ]);
+  } catch (error) {
+    console.error("Aktivite log hatası:", error);
+  }
 }
