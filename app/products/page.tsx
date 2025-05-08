@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { logActivity } from "@/utils/logActivity";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -52,6 +53,31 @@ export default function ProductsPage() {
     setFiltered(results);
     setCurrentPage(1);
   }, [filters, products, search]);
+
+  useEffect(() => {
+  async function logla() {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: rolData } = await supabase
+        .from("calisanlar")
+        .select("rol, ad, soyad")
+        .eq("auth_user_id", user.id)
+        .single();
+
+      await logActivity({
+        user_id: user.id,
+        email: user.email ?? "",
+        full_name: `${rolData?.ad ?? ""} ${rolData?.soyad ?? ""}`,
+        rol: rolData?.rol ?? "bilinmiyor",
+        islem: "Ürünler Sayfası görüntülendi",
+      });
+    }
+  }
+
+  logla();
+}, []);
+
 
   const totalPages = Math.ceil(filtered.length / perPage);
   const start = (currentPage - 1) * perPage;
