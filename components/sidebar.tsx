@@ -31,7 +31,7 @@ const menuItems: MenuItem[] = [
     label: "Araçlar",
     href: "/products",
     icon: "🚗",
-    roles: ["superadmin", "editor"],
+    roles: ["superadmin", "editor", "musteri_temsilcisi"],
   },
   {
     label: "Kullanıcılar",
