@@ -77,7 +77,7 @@ export default function EditProductPage({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setProduct((prev) => ({ ...prev, [name]: name === "fiyat" ? parseFloat(value) : value }));
+    setProduct((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -116,84 +116,75 @@ export default function EditProductPage({
     }
   };
 
-  
-const handleSave = async () => {
-  setIsSaving(true);
-  try {
-    if (mode === "create") {
-      const { data: inserted, error } = await supabase
-        .from("Araclar")
-        .insert({
-          ...product,
-          kisa_aciklama: kisaAciklama,
-          aciklama,
-          gallery_images: galleryFiles,
-        })
-        .select()
-        .single();
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // Varyasyonlardaki en düşük fiyatı bul
+      const lowestPrice =
+        variations.length > 0
+          ? Math.min(...variations.filter(v => v.status === "Aktif").map(v => v.fiyat))
+          : 0;
 
-      if (inserted && variations.length > 0) {
-        const payload = variations.map((v) => ({
-          arac_id: inserted.id,
-          kilometre: v.kilometre,
-          sure: v.sure,
-          fiyat: v.fiyat,
-          status: v.status,
-        }));
+      if (mode === "create") {
+        const { data: inserted, error } = await supabase
+          .from("Araclar")
+          .insert({
+            ...product,
+            fiyat: lowestPrice,
+            kisa_aciklama: kisaAciklama,
+            aciklama,
+            gallery_images: galleryFiles,
+          })
+          .select()
+          .single();
 
-        const { error: insertError } = await supabase
-          .from("variations")
-          .insert(payload);
+        if (inserted && variations.length > 0) {
+          const payload = variations.map((v) => ({
+            product_id: inserted.id,
+            kilometre: v.kilometre,
+            sure: v.sure,
+            fiyat: v.fiyat,
+            status: v.status,
+          }));
 
-        if (insertError) {
-          console.error("Varyasyon ekleme hatası:", insertError.message);
+          await supabase.from("variations").insert(payload);
         }
-      }
 
-      alert("Ürün başarıyla eklendi ✅");
-    } else {
-      await supabase
-        .from("Araclar")
-        .update({
-          ...product,
-          kisa_aciklama: kisaAciklama,
-          aciklama,
-          gallery_images: galleryFiles,
-        })
-        .eq("id", product.id);
+        alert("Ürün başarıyla eklendi ✅");
+      } else {
+        await supabase
+          .from("Araclar")
+          .update({
+            ...product,
+            fiyat: lowestPrice,
+            kisa_aciklama: kisaAciklama,
+            aciklama,
+            gallery_images: galleryFiles,
+          })
+          .eq("id", product.id);
 
-      await supabase
-        .from("variations")
-        .delete()
-        .eq("arac_id", product.id);
+        await supabase.from("variations").delete().eq("product_id", product.id);
 
-      if (variations.length > 0) {
-        const payload = variations.map((v) => ({
-          arac_id: product.id,
-          kilometre: v.kilometre,
-          sure: v.sure,
-          fiyat: v.fiyat,
-          status: v.status,
-        }));
+        if (variations.length > 0) {
+          const payload = variations.map((v) => ({
+            product_id: product.id,
+            kilometre: v.kilometre,
+            sure: v.sure,
+            fiyat: v.fiyat,
+            status: v.status,
+          }));
 
-        const { error: insertError } = await supabase
-          .from("variations")
-          .insert(payload);
-
-        if (insertError) {
-          console.error("Varyasyon ekleme hatası:", insertError.message);
+          await supabase.from("variations").insert(payload);
         }
-      }
 
-      alert("Ürün başarıyla güncellendi ✅");
+        alert("Ürün başarıyla güncellendi ✅");
+      }
+    } catch (err) {
+      alert("Hata: " + (err as any).message);
+    } finally {
+      setIsSaving(false);
     }
-  } catch (err) {
-    alert("Hata: " + (err as any).message);
-  } finally {
-    setIsSaving(false);
-  }
-};
-
+  };
 
   return (
     <div className="p-6 space-y-10 bg-gray-100 min-h-screen">
@@ -201,47 +192,37 @@ const handleSave = async () => {
 
       {/* Ürün Bilgileri */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded shadow">
-        <input name="isim" placeholder="Ürün Adı" value={product.isim} onChange={handleInputChange} className="border p-2 rounded" />
-        <input name="stok_kodu" placeholder="Stok Kodu" value={product.stok_kodu} onChange={handleInputChange} className="border p-2 rounded" />
-        <input name="fiyat" type="number" placeholder="Fiyat" value={product.fiyat} onChange={handleInputChange} className="border p-2 rounded" />
-        {[{ name: "yakit_turu", options: YAKIT_OPTIONS }, { name: "vites", options: VITES_OPTIONS }, { name: "brand", options: MARKA_OPTIONS }, { name: "segment", options: SEGMENT_OPTIONS }, { name: "bodyType", options: BODYTYPE_OPTIONS }, { name: "durum", options: DURUM_OPTIONS }].map(({ name, options }) => (
-          <select key={name} name={name} value={(product as any)[name]} onChange={handleSelectChange} className="border p-2 rounded">
-            {options.map((o) => <option key={o}>{o}</option>)}
-          </select>
+        <div>
+          <label>Ürün Adı</label>
+          <input name="isim" value={product.isim} onChange={handleInputChange} className="border p-2 rounded w-full" />
+        </div>
+        <div>
+          <label>Stok Kodu</label>
+          <input name="stok_kodu" value={product.stok_kodu} onChange={handleInputChange} className="border p-2 rounded w-full" />
+        </div>
+        {[
+          { label: "Yakıt Türü", name: "yakit_turu", options: YAKIT_OPTIONS },
+          { label: "Vites", name: "vites", options: VITES_OPTIONS },
+          { label: "Marka", name: "brand", options: MARKA_OPTIONS },
+          { label: "Segment", name: "segment", options: SEGMENT_OPTIONS },
+          { label: "Gövde Tipi", name: "bodyType", options: BODYTYPE_OPTIONS },
+          { label: "Durum", name: "durum", options: DURUM_OPTIONS },
+        ].map(({ label, name, options }) => (
+          <div key={name}>
+            <label>{label}</label>
+            <select name={name} value={(product as any)[name]} onChange={handleSelectChange} className="border p-2 rounded w-full">
+              {options.map((o) => <option key={o}>{o}</option>)}
+            </select>
+          </div>
         ))}
       </div>
 
       {/* Açıklamalar */}
       <div className="bg-white p-6 rounded shadow space-y-4">
         <label className="block mb-2">Kısa Açıklama</label>
-        <Editor
-          tinymceScriptSrc="/tinymce/tinymce.min.js"
-          value={kisaAciklama}
-          onEditorChange={setKisaAciklama}
-          init={{
-            height: 150,
-            menubar: false,
-            toolbar: "undo redo | bold italic | bullist numlist | link code",
-            skin_url: "/tinymce/skins/ui/oxide",
-            content_css: "/tinymce/skins/content/default/content.css",
-            branding: false,
-          }}
-        />
+        <Editor value={kisaAciklama} onEditorChange={setKisaAciklama} init={{ height: 150, menubar: false }} />
         <label className="block mb-2">Detaylı Açıklama</label>
-        <Editor
-          tinymceScriptSrc="/tinymce/tinymce.min.js"
-          value={aciklama}
-          onEditorChange={setAciklama}
-          init={{
-            height: 300,
-            menubar: true,
-            plugins: ["advlist", "autolink", "lists", "link", "image", "charmap", "preview", "anchor", "code", "fullscreen", "insertdatetime", "media", "table", "help", "wordcount"],
-            toolbar: "undo redo | styleselect | bold italic | alignleft aligncenter alignright | bullist numlist | link image | code",
-            skin_url: "/tinymce/skins/ui/oxide",
-            content_css: "/tinymce/skins/content/default/content.css",
-            branding: false,
-          }}
-        />
+        <Editor value={aciklama} onEditorChange={setAciklama} init={{ height: 300 }} />
       </div>
 
       {/* Görsel Seçimi */}
@@ -263,12 +244,22 @@ const handleSave = async () => {
 
       {/* Varyasyonlar */}
       <div className="bg-white p-6 rounded shadow space-y-4">
+        <div className="flex gap-2 font-bold">
+          <div className="w-1/4">Kilometre</div>
+          <div className="w-1/4">Süre</div>
+          <div className="w-1/4">Fiyat</div>
+          <div className="w-1/4">Durum</div>
+        </div>
         {variations.map((v, idx) => (
           <div key={v.id} className="flex gap-2 items-center">
-            <select value={v.kilometre} onChange={(e) => handleVariationChange(idx, "kilometre", e.target.value)} className="border p-2 rounded">{KILOMETRE_OPTIONS.map(k => <option key={k}>{k}</option>)}</select>
-            <select value={v.sure} onChange={(e) => handleVariationChange(idx, "sure", e.target.value)} className="border p-2 rounded">{SURE_OPTIONS.map(s => <option key={s}>{s}</option>)}</select>
-            <input type="number" value={v.fiyat} onChange={(e) => handleVariationChange(idx, "fiyat", e.target.value)} className="border p-2 rounded w-28" />
-            <select value={v.status} onChange={(e) => handleVariationChange(idx, "status", e.target.value)} className="border p-2 rounded">
+            <select value={v.kilometre} onChange={(e) => handleVariationChange(idx, "kilometre", e.target.value)} className="border p-2 rounded w-1/4">
+              {KILOMETRE_OPTIONS.map(k => <option key={k}>{k}</option>)}
+            </select>
+            <select value={v.sure} onChange={(e) => handleVariationChange(idx, "sure", e.target.value)} className="border p-2 rounded w-1/4">
+              {SURE_OPTIONS.map(s => <option key={s}>{s}</option>)}
+            </select>
+            <input type="number" value={v.fiyat} onChange={(e) => handleVariationChange(idx, "fiyat", e.target.value)} className="border p-2 rounded w-1/4" />
+            <select value={v.status} onChange={(e) => handleVariationChange(idx, "status", e.target.value)} className="border p-2 rounded w-1/4">
               <option>Aktif</option>
               <option>Pasif</option>
             </select>
