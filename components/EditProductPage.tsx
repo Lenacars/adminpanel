@@ -116,49 +116,84 @@ export default function EditProductPage({
     }
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      if (mode === "create") {
-        const { data: inserted, error } = await supabase
-          .from("Araclar")
-          .insert({
-            ...product,
-            kisa_aciklama: kisaAciklama,
-            aciklama,
-            gallery_images: galleryFiles,
-          })
-          .select()
-          .single();
+  
+const handleSave = async () => {
+  setIsSaving(true);
+  try {
+    if (mode === "create") {
+      const { data: inserted, error } = await supabase
+        .from("Araclar")
+        .insert({
+          ...product,
+          kisa_aciklama: kisaAciklama,
+          aciklama,
+          gallery_images: galleryFiles,
+        })
+        .select()
+        .single();
 
-        if (inserted && variations.length > 0) {
-          await supabase.from("variations").insert(
-            variations.map((v) => ({ ...v, arac_id: inserted.id }))
-          );
+      if (inserted && variations.length > 0) {
+        const payload = variations.map((v) => ({
+          arac_id: inserted.id,
+          kilometre: v.kilometre,
+          sure: v.sure,
+          fiyat: v.fiyat,
+          status: v.status,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("variations")
+          .insert(payload);
+
+        if (insertError) {
+          console.error("Varyasyon ekleme hatası:", insertError.message);
         }
-        alert("Ürün başarıyla eklendi ✅");
-      } else {
-        await supabase
-          .from("Araclar")
-          .update({
-            ...product,
-            kisa_aciklama: kisaAciklama,
-            aciklama,
-            gallery_images: galleryFiles,
-          })
-          .eq("id", product.id);
-
-        await supabase.from("variations").upsert(
-          variations.map((v) => ({ ...v, arac_id: product.id }))
-        );
-        alert("Ürün başarıyla güncellendi ✅");
       }
-    } catch (err: any) {
-      alert("Hata: " + err.message);
-    } finally {
-      setIsSaving(false);
+
+      alert("Ürün başarıyla eklendi ✅");
+    } else {
+      await supabase
+        .from("Araclar")
+        .update({
+          ...product,
+          kisa_aciklama: kisaAciklama,
+          aciklama,
+          gallery_images: galleryFiles,
+        })
+        .eq("id", product.id);
+
+      await supabase
+        .from("variations")
+        .delete()
+        .eq("arac_id", product.id);
+
+      if (variations.length > 0) {
+        const payload = variations.map((v) => ({
+          arac_id: product.id,
+          kilometre: v.kilometre,
+          sure: v.sure,
+          fiyat: v.fiyat,
+          status: v.status,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("variations")
+          .insert(payload);
+
+        if (insertError) {
+          console.error("Varyasyon ekleme hatası:", insertError.message);
+        }
+      }
+
+      alert("Ürün başarıyla güncellendi ✅");
     }
-  };
+  } catch (err) {
+    alert("Hata: " + (err as any).message);
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 
   return (
     <div className="p-6 space-y-10 bg-gray-100 min-h-screen">
