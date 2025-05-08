@@ -6,7 +6,6 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-// Menü öğeleri tipi
 interface MenuItem {
   label: string;
   href?: string;
@@ -56,6 +55,12 @@ const menuItems: MenuItem[] = [
     icon: "🛒",
     roles: ["superadmin", "editor"],
   },
+  {
+    label: "Aktivite Logları",
+    href: "/aktivite-loglari",
+    icon: "📝",
+    roles: ["superadmin"],
+  },
 ];
 
 const pageMenu: ChildMenuItem[] = [
@@ -72,7 +77,6 @@ const extraMenuItems: MenuItem[] = [
   { label: "Ayarlar", href: "/ayarlar", icon: "⚙️", roles: [] },
   { label: "Ortam Kütüphanesi", href: "/media", icon: "🖼️", roles: [] },
   { label: "CSV Yükle", href: "/upload", icon: "📄", highlight: true, roles: [] },
-  { label: "Aktivite Logları", href: "/aktivite-loglari", icon: "📝", roles: ["superadmin"] },
 ];
 
 export default function Sidebar() {
@@ -82,9 +86,8 @@ export default function Sidebar() {
   const [openPages, setOpenPages] = useState(true);
   const [openUsers, setOpenUsers] = useState(true);
 
-  // Rol ve ad-soyad çek
   useEffect(() => {
-    async function fetchRole() {
+    async function fetchUserInfo() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data, error } = await supabase
@@ -97,7 +100,7 @@ export default function Sidebar() {
           setRol(data.rol);
           setAdSoyad(`${data.ad} ${data.soyad}`);
         } else {
-          console.error("Rol veya isim bulunamadı", error);
+          console.error("Rol veya ad soyad bulunamadı:", error);
           setRol(null);
           setAdSoyad(null);
         }
@@ -107,7 +110,7 @@ export default function Sidebar() {
       }
     }
 
-    fetchRole();
+    fetchUserInfo();
   }, []);
 
   if (pathname === "/login") {
@@ -115,103 +118,106 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="h-screen bg-[#6A3C96] w-64 p-4 text-sm text-white">
-      <div className="flex flex-col mb-6 gap-2">
-        <div className="flex items-center gap-2">
-          <Image
-            src="https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/1746433174940-Untitled%20design%20(8).png"
-            alt="LenaCars Logo"
-            width={54}
-            height={54}
-          />
-          <span className="bg-white text-[#6A3C96] text-xs px-2 py-1 rounded font-semibold">Admin</span>
+    <aside className="h-screen bg-[#6A3C96] w-64 p-4 text-sm text-white flex flex-col justify-between">
+      <div>
+        <div className="flex flex-col mb-6 gap-2">
+          <div className="flex items-center gap-2">
+            <Image
+              src="https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/1746433174940-Untitled%20design%20(8).png"
+              alt="LenaCars Logo"
+              width={54}
+              height={54}
+            />
+            <span className="bg-white text-[#6A3C96] text-xs px-2 py-1 rounded font-semibold">Admin</span>
+          </div>
+
+          {adSoyad && rol && (
+            <div className="bg-[#5b3482] rounded-md p-3 mt-2">
+              <div className="flex items-center gap-2">
+                <div className="bg-white text-[#6A3C96] rounded-full w-8 h-8 flex items-center justify-center font-bold uppercase">
+                  {adSoyad[0]}
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">{adSoyad}</div>
+                  <div className="text-xs italic text-gray-200">({rol})</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        {/* Giriş yapan kullanıcının ad soyad + rolü */}
-        {adSoyad && rol && (
-          <div className="text-xs text-white mt-1 ml-1">
-            {adSoyad} <br />
-            <span className="italic">({rol})</span>
-          </div>
-        )}
-      </div>
 
-      <nav className="space-y-2">
-        {menuItems.map((item) => {
-          if (rol === null) return null;
-          if (!item.roles.includes(rol)) return null;
+        <nav className="space-y-2">
+          {menuItems.map((item) => {
+            if (rol === null) return null;
+            if (!item.roles.includes(rol)) return null;
 
-          if (item.children) {
-            return (
-              <div key={item.label}>
-                <button
-                  onClick={() => setOpenUsers(!openUsers)}
-                  className="flex items-center gap-2 px-4 py-2 w-full rounded-md hover:bg-[#5b3482] transition"
-                >
-                  <span>{item.icon}</span>
-                  <span className="flex-1 text-left">{item.label}</span>
-                  <span>{openUsers ? "▲" : "▼"}</span>
-                </button>
-                {openUsers && (
-                  <div className="ml-4 mt-1 space-y-1">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        className="block px-3 py-1 rounded hover:bg-[#5b3482]"
-                      >
-                        {child.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href!}
-              className="flex items-center gap-2 px-4 py-2 rounded-md hover:bg-[#5b3482] transition"
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </Link>
-          );
-        })}
-
-        {/* Sayfalar menüsü sadece superadmin görecek */}
-        {rol === "superadmin" && (
-          <div>
-            <button
-              onClick={() => setOpenPages(!openPages)}
-              className="flex items-center gap-2 px-4 py-2 w-full rounded-md hover:bg-[#5b3482] transition"
-            >
-              <span>📄</span>
-              <span className="flex-1 text-left">Sayfalar</span>
-              <span>{openPages ? "▲" : "▼"}</span>
-            </button>
-            {openPages && (
-              <div className="ml-4 mt-1 space-y-1">
-                {pageMenu.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="block px-3 py-1 rounded hover:bg-[#5b3482]"
+            if (item.children) {
+              return (
+                <div key={item.label}>
+                  <button
+                    onClick={() => setOpenUsers(!openUsers)}
+                    className="flex items-center gap-2 px-4 py-2 w-full rounded-md hover:bg-[#5b3482] transition"
                   >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                    <span>{item.icon}</span>
+                    <span className="flex-1 text-left">{item.label}</span>
+                    <span>{openUsers ? "▲" : "▼"}</span>
+                  </button>
+                  {openUsers && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className="block px-3 py-1 rounded hover:bg-[#5b3482]"
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
-        {extraMenuItems.map((item) => {
-          // Eğer item.roles boşsa herkes görebilir, doluysa kontrol et
-          if (item.roles.length > 0 && rol && !item.roles.includes(rol)) return null;
+            return (
+              <Link
+                key={item.href}
+                href={item.href!}
+                className="flex items-center gap-2 px-4 py-2 rounded-md hover:bg-[#5b3482] transition"
+              >
+                <span>{item.icon}</span>
+                {item.label}
+              </Link>
+            );
+          })}
 
-          return (
+          {rol === "superadmin" && (
+            <div>
+              <button
+                onClick={() => setOpenPages(!openPages)}
+                className="flex items-center gap-2 px-4 py-2 w-full rounded-md hover:bg-[#5b3482] transition"
+              >
+                <span>📄</span>
+                <span className="flex-1 text-left">Sayfalar</span>
+                <span>{openPages ? "▲" : "▼"}</span>
+              </button>
+              {openPages && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {pageMenu.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="block px-3 py-1 rounded hover:bg-[#5b3482]"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {extraMenuItems.map((item) => (
             <Link
               key={item.href}
               href={item.href!}
@@ -224,20 +230,19 @@ export default function Sidebar() {
               <span>{item.icon}</span>
               {item.label}
             </Link>
-          );
-        })}
+          ))}
+        </nav>
+      </div>
 
-        {/* Çıkış Butonu */}
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.href = "/login";
-          }}
-          className="w-full mt-4 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
-        >
-          Çıkış Yap
-        </button>
-      </nav>
+      <button
+        onClick={async () => {
+          await supabase.auth.signOut();
+          window.location.href = "/login";
+        }}
+        className="w-full mt-4 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
+      >
+        Çıkış Yap
+      </button>
     </aside>
   );
 }
