@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+// Menü öğeleri tipi
 interface MenuItem {
   label: string;
   href?: string;
@@ -55,12 +56,6 @@ const menuItems: MenuItem[] = [
     icon: "🛒",
     roles: ["superadmin", "editor"],
   },
-  {
-    label: "Aktivite Logları",
-    href: "/calisan-aktiviteleri",
-    icon: "📝",
-    roles: ["superadmin"],
-  },
 ];
 
 const pageMenu: ChildMenuItem[] = [
@@ -77,48 +72,67 @@ const extraMenuItems: MenuItem[] = [
   { label: "Ayarlar", href: "/ayarlar", icon: "⚙️", roles: [] },
   { label: "Ortam Kütüphanesi", href: "/media", icon: "🖼️", roles: [] },
   { label: "CSV Yükle", href: "/upload", icon: "📄", highlight: true, roles: [] },
+  { label: "Aktivite Logları", href: "/aktivite-loglari", icon: "📝", roles: ["superadmin"] },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [rol, setRol] = useState<string | null>(null);
+  const [adSoyad, setAdSoyad] = useState<string | null>(null);
   const [openPages, setOpenPages] = useState(true);
   const [openUsers, setOpenUsers] = useState(true);
 
+  // Rol ve ad-soyad çek
   useEffect(() => {
     async function fetchRole() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data, error } = await supabase
           .from("calisanlar")
-          .select("rol")
+          .select("rol, ad, soyad")
           .eq("auth_user_id", user.id)
           .single();
+
         if (!error && data) {
           setRol(data.rol);
+          setAdSoyad(`${data.ad} ${data.soyad}`);
         } else {
-          console.error("Rol bulunamadı", error);
+          console.error("Rol veya isim bulunamadı", error);
           setRol(null);
+          setAdSoyad(null);
         }
       } else {
         setRol(null);
+        setAdSoyad(null);
       }
     }
+
     fetchRole();
   }, []);
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login") {
+    return null;
+  }
 
   return (
     <aside className="h-screen bg-[#6A3C96] w-64 p-4 text-sm text-white">
-      <div className="flex items-center mb-6 gap-2">
-        <Image
-          src="https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/1746433174940-Untitled%20design%20(8).png"
-          alt="LenaCars Logo"
-          width={54}
-          height={54}
-        />
-        <span className="bg-white text-[#6A3C96] text-xs px-2 py-1 rounded font-semibold">Admin</span>
+      <div className="flex flex-col mb-6 gap-2">
+        <div className="flex items-center gap-2">
+          <Image
+            src="https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/1746433174940-Untitled%20design%20(8).png"
+            alt="LenaCars Logo"
+            width={54}
+            height={54}
+          />
+          <span className="bg-white text-[#6A3C96] text-xs px-2 py-1 rounded font-semibold">Admin</span>
+        </div>
+        {/* Giriş yapan kullanıcının ad soyad + rolü */}
+        {adSoyad && rol && (
+          <div className="text-xs text-white mt-1 ml-1">
+            {adSoyad} <br />
+            <span className="italic">({rol})</span>
+          </div>
+        )}
       </div>
 
       <nav className="space-y-2">
@@ -166,6 +180,7 @@ export default function Sidebar() {
           );
         })}
 
+        {/* Sayfalar menüsü sadece superadmin görecek */}
         {rol === "superadmin" && (
           <div>
             <button
@@ -192,21 +207,27 @@ export default function Sidebar() {
           </div>
         )}
 
-        {extraMenuItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href!}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${
-              item.highlight
-                ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                : "hover:bg-[#5b3482]"
-            }`}
-          >
-            <span>{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+        {extraMenuItems.map((item) => {
+          // Eğer item.roles boşsa herkes görebilir, doluysa kontrol et
+          if (item.roles.length > 0 && rol && !item.roles.includes(rol)) return null;
 
+          return (
+            <Link
+              key={item.href}
+              href={item.href!}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${
+                item.highlight
+                  ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  : "hover:bg-[#5b3482]"
+              }`}
+            >
+              <span>{item.icon}</span>
+              {item.label}
+            </Link>
+          );
+        })}
+
+        {/* Çıkış Butonu */}
         <button
           onClick={async () => {
             await supabase.auth.signOut();
