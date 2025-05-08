@@ -56,8 +56,8 @@ const menuItems: MenuItem[] = [
     roles: ["superadmin", "editor"],
   },
   {
-    label: "Aktivite Logları",
-    href: "/aktivite-loglari",
+    label: "Çalışan Hareketleri",
+    href: "/calisan-aktiviteleri",
     icon: "📝",
     roles: ["superadmin"],
   },
