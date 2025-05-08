@@ -60,12 +60,30 @@ export default function EditProductPage({
   const [search, setSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // 📌 Sayfa yenilenince varyasyonları Supabase'den çek
+  useEffect(() => {
+    const fetchVariations = async () => {
+      const { data, error } = await supabase
+        .from("variations")
+        .select("*")
+        .eq("product_id", product.id);
+
+      if (!error && data) {
+        setVariations(data);
+      }
+    };
+
+    if (product.id) {
+      fetchVariations();
+    }
+  }, [product.id]);
+
   useEffect(() => {
     const fetchImages = async () => {
-      const { data, error } = await supabase.storage.from("images").list("", {
+      const { data } = await supabase.storage.from("images").list("", {
         sortBy: { column: "name", order: "asc" },
       });
-      if (!error && data) setImageOptions(data.map((f) => f.name));
+      if (data) setImageOptions(data.map((f) => f.name));
     };
     fetchImages();
   }, []);
@@ -119,24 +137,16 @@ export default function EditProductPage({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Varyasyonlardaki en düşük fiyatı bul
-      const lowestPrice =
-        variations.length > 0
-          ? Math.min(...variations.filter(v => v.status === "Aktif").map(v => v.fiyat))
-          : 0;
+      const lowestPrice = variations.length > 0 ? Math.min(...variations.filter(v => v.status === "Aktif").map(v => v.fiyat)) : 0;
 
       if (mode === "create") {
-        const { data: inserted, error } = await supabase
-          .from("Araclar")
-          .insert({
-            ...product,
-            fiyat: lowestPrice,
-            kisa_aciklama: kisaAciklama,
-            aciklama,
-            gallery_images: galleryFiles,
-          })
-          .select()
-          .single();
+        const { data: inserted } = await supabase.from("Araclar").insert({
+          ...product,
+          fiyat: lowestPrice,
+          kisa_aciklama: kisaAciklama,
+          aciklama,
+          gallery_images: galleryFiles,
+        }).select().single();
 
         if (inserted && variations.length > 0) {
           const payload = variations.map((v) => ({
@@ -146,23 +156,20 @@ export default function EditProductPage({
             fiyat: v.fiyat,
             status: v.status,
           }));
-
           await supabase.from("variations").insert(payload);
         }
 
         alert("Ürün başarıyla eklendi ✅");
       } else {
-        await supabase
-          .from("Araclar")
-          .update({
-            ...product,
-            fiyat: lowestPrice,
-            kisa_aciklama: kisaAciklama,
-            aciklama,
-            gallery_images: galleryFiles,
-          })
-          .eq("id", product.id);
+        await supabase.from("Araclar").update({
+          ...product,
+          fiyat: lowestPrice,
+          kisa_aciklama: kisaAciklama,
+          aciklama,
+          gallery_images: galleryFiles,
+        }).eq("id", product.id);
 
+        // Varyasyonları tamamen sil ve tekrar ekle
         await supabase.from("variations").delete().eq("product_id", product.id);
 
         if (variations.length > 0) {
@@ -173,7 +180,6 @@ export default function EditProductPage({
             fiyat: v.fiyat,
             status: v.status,
           }));
-
           await supabase.from("variations").insert(payload);
         }
 
@@ -190,7 +196,6 @@ export default function EditProductPage({
     <div className="p-6 space-y-10 bg-gray-100 min-h-screen">
       <h1 className="text-3xl font-bold">{mode === "create" ? "Yeni Ürün" : "Ürün Düzenle"}</h1>
 
-      {/* Ürün Bilgileri */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded shadow">
         <div>
           <label>Ürün Adı</label>
@@ -217,7 +222,6 @@ export default function EditProductPage({
         ))}
       </div>
 
-      {/* Açıklamalar */}
       <div className="bg-white p-6 rounded shadow space-y-4">
         <label className="block mb-2">Kısa Açıklama</label>
         <Editor value={kisaAciklama} onEditorChange={setKisaAciklama} init={{ height: 150, menubar: false }} />
@@ -225,7 +229,6 @@ export default function EditProductPage({
         <Editor value={aciklama} onEditorChange={setAciklama} init={{ height: 300 }} />
       </div>
 
-      {/* Görsel Seçimi */}
       <div className="bg-white p-6 rounded shadow">
         <button onClick={() => { setShowImageModal(true); setSelectingCover(true); }} className="bg-blue-600 text-white px-4 py-2 rounded">Kapak Görseli</button>
         <button onClick={() => { setShowImageModal(true); setSelectingCover(false); }} className="bg-blue-500 text-white px-4 py-2 rounded ml-2">Galeri Görseli</button>
@@ -242,7 +245,6 @@ export default function EditProductPage({
         </div>
       </div>
 
-      {/* Varyasyonlar */}
       <div className="bg-white p-6 rounded shadow space-y-4">
         <div className="flex gap-2 font-bold">
           <div className="w-1/4">Kilometre</div>
@@ -270,14 +272,12 @@ export default function EditProductPage({
         </button>
       </div>
 
-      {/* Kaydet */}
       <div className="flex justify-end">
         <button onClick={handleSave} disabled={isSaving} className="bg-green-600 text-white px-6 py-3 rounded shadow hover:bg-green-700 transition">
           {isSaving ? "Kaydediliyor..." : mode === "create" ? "Ürünü Ekle" : "Ürünü Güncelle"}
         </button>
       </div>
 
-      {/* Modal */}
       {showImageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-6">
           <div className="bg-white p-6 rounded max-h-[80vh] overflow-auto w-full max-w-3xl relative">
