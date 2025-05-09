@@ -23,52 +23,56 @@ export async function createProduct(productData: any) {
 
     let productId = id;
 
+    // 🔹 Ürün oluşturulmamışsa önce ürünü ekle
     if (!id) {
       const { data, error } = await supabase.from("Araclar").insert([
         {
           isim: name,
           aciklama: description,
-          durum: condition,
-          brand: brand,
-          bodyType: bodyType,
-          segment: segment,
-          vites: transmission,
-          yakit_turu: fuel,
-          category: categories,
-          cover_image: cover_url,
-          gallery_images: gallery_urls,
+          stok_durumu: condition,
+          marka: brand,
+          kasa_tipi: bodyType,
+          segment,
+          vites_tipi: transmission,
+          yakit_tipi: fuel,
+          kategoriler: categories,
+          kapak_gorseli: cover_url,
+          galeri_gorseller: gallery_urls,
         },
       ]).select("id").single();
 
       if (error) throw error;
       productId = data.id;
     } else {
+      // 🔹 Ürün varsa güncelle
       const { error } = await supabase.from("Araclar").update({
         isim: name,
         aciklama: description,
-        durum: condition,
-        brand: brand,
-        bodyType: bodyType,
-        segment: segment,
-        vites: transmission,
-        yakit_turu: fuel,
-        category: categories,
-        cover_image: cover_url,
-        gallery_images: gallery_urls,
+        stok_durumu: condition,
+        marka: brand,
+        kasa_tipi: bodyType,
+        segment,
+        vites_tipi: transmission,
+        yakit_tipi: fuel,
+        kategoriler: categories,
+        kapak_gorseli: cover_url,
+        galeri_gorseller: gallery_urls,
       }).eq("id", id);
 
       if (error) throw error;
 
-      await supabase.from("variations").delete().eq("arac_id", id);
+      // 🔹 Eski varyasyonları sil
+      await supabase.from("variations").delete().eq("product_id", id);
     }
 
+    // 🔹 Yeni varyasyonları ekle
     if (variations && Array.isArray(variations)) {
       const formatted = variations.map((v: any) => ({
-        arac_id: productId,
+        product_id: productId,
         kilometre: v.kilometre,
         sure: v.sure,
         fiyat: parseFloat(v.fiyat || "0"),
-        status: v.status,
+        status: v.status || "Aktif",
       }));
 
       const { error: varErr } = await supabase.from("variations").insert(formatted);
