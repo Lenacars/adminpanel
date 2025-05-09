@@ -21,6 +21,7 @@ interface Yorum {
 export default function YorumlarPage() {
   const [yorumlar, setYorumlar] = useState<Yorum[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openUser, setOpenUser] = useState<string | null>(null);
 
   const fetchYorumlar = async () => {
     setLoading(true);
@@ -55,36 +56,56 @@ export default function YorumlarPage() {
     fetchYorumlar();
   }, []);
 
+  const grouped = yorumlar.reduce((acc, yorum) => {
+    const key = yorum.user_id;
+    if (!acc[key]) acc[key] = { kullanici: yorum.kullanici, yorumlar: [] };
+    acc[key].yorumlar.push(yorum);
+    return acc;
+  }, {} as Record<string, { kullanici?: Yorum["kullanici"]; yorumlar: Yorum[] }>);
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Yorumlar</h1>
+      <h1 className="text-2xl font-bold mb-6">Yorumlar</h1>
 
       {loading ? (
         <p>Yükleniyor...</p>
-      ) : yorumlar.length === 0 ? (
+      ) : Object.keys(grouped).length === 0 ? (
         <p>Hiç yorum bulunamadı.</p>
       ) : (
         <div className="space-y-4">
-          {yorumlar.map((y) => (
-            <div key={y.id} className="border p-4 rounded bg-white shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <div className="text-sm text-gray-700">
-                  <strong>{y.kullanici?.ad} {y.kullanici?.soyad}</strong>{" "}
-                  <span className="text-gray-500">({y.kullanici?.email})</span>
+          {Object.entries(grouped).map(([userId, group]) => (
+            <div key={userId} className="bg-[#6a3c96] rounded text-white">
+              <button
+                className="w-full text-left p-4 font-semibold flex justify-between items-center"
+                onClick={() => setOpenUser(openUser === userId ? null : userId)}
+              >
+                <span>
+                  {group.kullanici?.ad} {group.kullanici?.soyad} - {group.kullanici?.email}
+                </span>
+                <span>{openUser === userId ? "▲" : "▼"}</span>
+              </button>
+
+              {openUser === userId && (
+                <div className="bg-white text-black space-y-2 p-4">
+                  {group.yorumlar.map((y) => (
+                    <div key={y.id} className="border p-3 rounded shadow-sm">
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>{new Date(y.created_at).toLocaleString()}</span>
+                        <span>{y.puan} ⭐</span>
+                      </div>
+                      <p className="mt-2">{y.yorum}</p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => handleDelete(y.id)}
+                      >
+                        Sil
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-sm text-gray-600">{new Date(y.created_at).toLocaleString()}</div>
-              </div>
-              <div className="text-gray-800 mb-2">{y.yorum}</div>
-              <div className="flex items-center justify-between">
-                <span className="text-yellow-600 font-semibold">{y.puan} ⭐</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(y.id)}
-                >
-                  Sil
-                </Button>
-              </div>
+              )}
             </div>
           ))}
         </div>
