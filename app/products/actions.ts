@@ -28,15 +28,15 @@ export async function createProduct(productData: any) {
         {
           isim: name,
           aciklama: description,
-          stok_durumu: condition,
-          marka: brand,
-          kasa_tipi: bodyType,
-          segment,
-          vites_tipi: transmission,
-          yakit_tipi: fuel,
-          kategoriler: categories,
-          kapak_gorseli: cover_url,
-          galeri_gorseller: gallery_urls,
+          durum: condition,
+          brand: brand,
+          bodyType: bodyType,
+          segment: segment,
+          vites: transmission,
+          yakit_turu: fuel,
+          category: categories,
+          cover_image: cover_url,
+          gallery_images: gallery_urls,
         },
       ]).select("id").single();
 
@@ -46,15 +46,15 @@ export async function createProduct(productData: any) {
       const { error } = await supabase.from("Araclar").update({
         isim: name,
         aciklama: description,
-        stok_durumu: condition,
-        marka: brand,
-        kasa_tipi: bodyType,
-        segment,
-        vites_tipi: transmission,
-        yakit_tipi: fuel,
-        kategoriler: categories,
-        kapak_gorseli: cover_url,
-        galeri_gorseller: gallery_urls,
+        durum: condition,
+        brand: brand,
+        bodyType: bodyType,
+        segment: segment,
+        vites: transmission,
+        yakit_turu: fuel,
+        category: categories,
+        cover_image: cover_url,
+        gallery_images: gallery_urls,
       }).eq("id", id);
 
       if (error) throw error;
@@ -97,6 +97,3 @@ export async function getProductById(id: string) {
 
   return data;
 }
-
-// Not: Bu dosyayı `app/products/actions.ts` veya `lib/actions/products.ts` olarak projeye dahil et.
-// Daha sonra form bileşenlerinde bu fonksiyonları doğrudan import ederek kullanabilirsin.
