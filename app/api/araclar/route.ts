@@ -6,28 +6,19 @@ export async function GET(request: NextRequest) {
   try {
     const { data: products, error } = await supabase
       .from("Araclar")
-      .select("*, variations:variations(*)");
+      .select("*, variations:variations!arac_id(fiyat, status)")
+      .order("created_at", { ascending: false });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 
-    const formatted = products.map((item) => {
-      const variations = item.variations || [];
-
-      const aktifVaryasyonlar = variations.filter((v: any) => v.status === "Aktif");
-      const minFiyat = aktifVaryasyonlar.length > 0
-        ? Math.min(...aktifVaryasyonlar.map((v: any) => v.fiyat))
-        : item.fiyat ?? 0;
-
-      return {
-        ...item,
-        fiyat: minFiyat,
-        cover_image: item.cover_image?.replace(/^\/+/, ""),
-        gallery_images: item.gallery_images?.map((img: string) => img.replace(/^\/+/, "")),
-        variations,
-      };
-    });
+    const formatted = products.map((item) => ({
+      ...item,
+      cover_image: item.cover_image?.replace(/^\/+/, ""),
+      gallery_images: item.gallery_images?.map((img: string) => img.replace(/^\/+/, "")),
+      variations: item.variations || []
+    }));
 
     return NextResponse.json({ data: formatted }, { headers: corsHeaders });
   } catch (error: any) {
