@@ -34,13 +34,14 @@ const menuItems: MenuItem[] = [
     roles: ["superadmin", "editor", "musteri_temsilcisi"],
   },
   {
-    label: "Kullanıcılar",
+   label: "Kullanıcılar",
     icon: "👤",
     roles: ["superadmin"],
     children: [
       { label: "Tüm Kullanıcılar", href: "/kullanicilar" },
       { label: "Evraklar", href: "/kullanicilar/evraklar" },
       { label: "Teklifler", href: "/kullanicilar/teklifler" },
+      { label: "Yorumlar", href: "/kullanicilar/yorumlar" }, // ✅ YENİ EKLENDİ
     ],
   },
   {
