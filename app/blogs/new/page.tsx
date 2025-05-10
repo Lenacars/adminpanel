@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
-const Editor = dynamic(() => import("@/components/editor"), { ssr: false });
+const Editor = dynamic(() => import("@/components/MyEditor"), { ssr: false });
 const MediaLibrary = dynamic(() => import("@/components/MediaLibraryModal"), { ssr: false });
 
 export default function NewBlogPage() {
@@ -57,7 +57,10 @@ export default function NewBlogPage() {
       <Input name="seo_description" value={form.seo_description} onChange={handleChange} />
 
       <Label>İçerik</Label>
-      <Editor value={form.content} onChange={(val) => setForm((prev) => ({ ...prev, content: val }))} />
+      <Editor
+        initialValue={form.content}
+        onEditorChange={(val) => setForm((prev) => ({ ...prev, content: val }))}
+      />
 
       <Label>Kapak Görseli</Label>
       <MediaLibrary onSelect={(url) => setForm((prev) => ({ ...prev, thumbnail_image: url }))} />
