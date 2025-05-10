@@ -20,6 +20,7 @@ export default function MediaLibrary({
   const [files, setFiles] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -82,6 +83,10 @@ export default function MediaLibrary({
     e.target.value = ""; // input sıfırla
   };
 
+  const filteredFiles = files.filter((file) =>
+    file.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex justify-center items-center">
       <div className="bg-white w-[90%] max-w-4xl max-h-[90vh] overflow-hidden rounded shadow-lg flex flex-col">
@@ -89,32 +94,45 @@ export default function MediaLibrary({
           <h2 className="text-lg font-bold">📁 Ortam Kütüphanesi</h2>
           <button
             onClick={onClose}
-            className="text-xl font-bold text-gray-500 hover:text-black"
+            className="text-xl font-bold text-gray-500 hover:text-black p-2 rounded hover:bg-gray-200"
+            aria-label="Kapat"
           >
             ✕
           </button>
         </div>
 
-        <div className="flex items-center justify-between px-4 pt-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 pt-4">
+          <div className="flex gap-2 items-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              hidden
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 text-sm rounded"
+              disabled={uploading}
+            >
+              {uploading ? "Yükleniyor..." : "+ Yeni Görsel Yükle"}
+            </button>
+            {uploading && (
+              <span className="text-sm text-gray-600 ml-2">⏳ Yükleniyor...</span>
+            )}
+          </div>
+
           <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            hidden
+            type="text"
+            placeholder="🔍 Görsel adına göre filtrele..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border px-2 py-1 rounded text-sm w-full md:w-64"
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 text-sm rounded"
-            disabled={uploading}
-          >
-            {uploading ? "Yükleniyor..." : "+ Yeni Görsel Yükle"}
-          </button>
-          {uploading && <span className="text-sm text-gray-600 ml-4">⏳ Yükleniyor...</span>}
         </div>
 
         <div className="p-4 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-          {files.map((file) => (
+          {filteredFiles.map((file) => (
             <div
               key={file}
               onClick={() => handleSelect(file)}
@@ -127,6 +145,7 @@ export default function MediaLibrary({
               <img
                 src={`https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/${file}`}
                 className="w-full h-24 object-cover rounded"
+                alt={file}
               />
               <p className="text-[11px] truncate text-center mt-1">{file}</p>
             </div>
