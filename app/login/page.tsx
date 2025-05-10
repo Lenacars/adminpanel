@@ -29,6 +29,9 @@ export default function LoginPage() {
 
       const user = session.user;
 
+      // ✅ Supabase token'ı localStorage'a yaz (Authorization için gerekli)
+      localStorage.setItem("sb-access-token", session.access_token);
+
       // ✅ Kullanıcının rolünü calisanlar tablosundan al
       const { data: userData, error: userError } = await supabase
         .from("calisanlar")
