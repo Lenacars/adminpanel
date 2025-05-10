@@ -116,6 +116,7 @@ export default function NewBlogPage() {
                   setForm((prev) => ({ ...prev, thumbnail_image: url }));
                   setShowMedia(false);
                 }}
+                onClose={() => setShowMedia(false)} // ✅ EKLENDİ
               />
             )}
           </div>
