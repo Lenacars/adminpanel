@@ -62,6 +62,12 @@ const menuItems: MenuItem[] = [
     icon: "📝",
     roles: ["superadmin"],
   },
+   {
+    label: "Bloglar", // ✅ YENİ
+    href: "/blogs",
+    icon: "✍️",
+    roles: ["superadmin", "editor"], // 👈 Sadece bu roller görecek
+  },
 ];
 
 const pageMenu: ChildMenuItem[] = [
