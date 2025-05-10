@@ -11,6 +11,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -26,11 +27,24 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("Giriş başarılı ✅");
-      console.log("Kullanıcı ID:", session.user.id); // 🔥 BURADA USER ID'Yİ LOG'LUYORUZ
+      const user = session.user;
 
-      // Kullanıcı ID'si burada artık doğru çekilmiş olacak
-      // Eğer burada ID görüyorsan sidebar çalışacaktır
+      // ✅ Kullanıcının rolünü calisanlar tablosundan al
+      const { data: userData, error: userError } = await supabase
+        .from("calisanlar")
+        .select("rol")
+        .eq("auth_user_id", user.id)
+        .single();
+
+      if (userError) {
+        console.error("Rol alınamadı:", userError.message);
+      } else {
+        // ✅ localStorage'a rolü yaz
+        localStorage.setItem("user_role", userData.rol);
+        console.log("Rol kaydedildi:", userData.rol);
+      }
+
+      console.log("Giriş başarılı ✅");
       router.push("/products");
     }
   };
