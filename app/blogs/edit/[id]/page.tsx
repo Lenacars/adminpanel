@@ -94,6 +94,7 @@ export default function EditBlogPage() {
                   setForm((prev: any) => ({ ...prev, thumbnail_image: url }));
                   setShowMedia(false);
                 }}
+                onClose={() => setShowMedia(false)} // ✅ EKLENDİ
               />
             )}
           </div>
