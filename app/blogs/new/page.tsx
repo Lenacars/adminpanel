@@ -23,6 +23,7 @@ export default function NewBlogPage() {
     published: false,
   });
 
+  const [showMedia, setShowMedia] = useState(false);
   const router = useRouter();
 
   const handleChange = (e: any) => {
@@ -63,8 +64,18 @@ export default function NewBlogPage() {
       />
 
       <Label>Kapak Görseli</Label>
-      <MediaLibrary onSelect={(url) => setForm((prev) => ({ ...prev, thumbnail_image: url }))} />
+      <Button variant="outline" onClick={() => setShowMedia(true)}>
+        Ortam Kütüphanesinden Seç
+      </Button>
       {form.thumbnail_image && <img src={form.thumbnail_image} className="w-64 mt-2 rounded" />}
+      {showMedia && (
+        <MediaLibrary
+          onSelect={(url) => {
+            setForm((prev) => ({ ...prev, thumbnail_image: url }));
+            setShowMedia(false);
+          }}
+        />
+      )}
 
       <div className="flex items-center gap-2 mt-2">
         <input type="checkbox" name="published" checked={form.published} onChange={handleChange} />
