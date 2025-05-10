@@ -14,6 +14,7 @@ const MediaLibrary = dynamic(() => import("@/components/MediaLibraryModal"), { s
 
 export default function EditBlogPage() {
   const [form, setForm] = useState<any>(null);
+  const [showMedia, setShowMedia] = useState(false);
   const { id } = useParams();
   const router = useRouter();
 
@@ -65,8 +66,18 @@ export default function EditBlogPage() {
       />
 
       <Label>Kapak Görseli</Label>
-      <MediaLibrary onSelect={(url) => setForm((prev: any) => ({ ...prev, thumbnail_image: url }))} />
+      <Button variant="outline" onClick={() => setShowMedia(true)}>
+        Ortam Kütüphanesinden Seç
+      </Button>
       {form.thumbnail_image && <img src={form.thumbnail_image} className="w-64 mt-2 rounded" />}
+      {showMedia && (
+        <MediaLibrary
+          onSelect={(url) => {
+            setForm((prev: any) => ({ ...prev, thumbnail_image: url }));
+            setShowMedia(false);
+          }}
+        />
+      )}
 
       <div className="flex items-center gap-2 mt-2">
         <input type="checkbox" name="published" checked={form.published} onChange={handleChange} />
