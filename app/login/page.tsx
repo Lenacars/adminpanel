@@ -18,38 +18,35 @@ export default function LoginPage() {
     });
 
     if (error) {
-      console.error("Hata:", error.message);
-    } else {
-      const session = data?.session;
-
-      if (!session) {
-        console.error("Session bulunamadı!");
-        return;
-      }
-
-      const user = session.user;
-
-      // ✅ Supabase token'ı localStorage'a yaz (Authorization için gerekli)
-      localStorage.setItem("sb-access-token", session.access_token);
-
-      // ✅ Kullanıcının rolünü calisanlar tablosundan al
-      const { data: userData, error: userError } = await supabase
-        .from("calisanlar")
-        .select("rol")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      if (userError) {
-        console.error("Rol alınamadı:", userError.message);
-      } else {
-        // ✅ localStorage'a rolü yaz
-        localStorage.setItem("user_role", userData.rol);
-        console.log("Rol kaydedildi:", userData.rol);
-      }
-
-      console.log("Giriş başarılı ✅");
-      router.push("/products");
+      console.error("Giriş hatası:", error.message);
+      return;
     }
+
+    const session = data?.session;
+    if (!session) {
+      console.error("Session bulunamadı!");
+      return;
+    }
+
+    const userId = session.user.id;
+    console.log("Giriş başarılı ✅");
+    console.log("Kullanıcı ID:", userId);
+
+    // ✅ Çalışanlar tablosundan rol al
+    const { data: userData, error: userError } = await supabase
+      .from("calisanlar")
+      .select("rol")
+      .eq("auth_user_id", userId)
+      .single();
+
+    if (userError || !userData) {
+      console.error("Rol alınamadı:", userError?.message || "Kullanıcı rolü bulunamadı.");
+    } else {
+      console.log("Rol:", userData.rol);
+      // İstersen burada useContext veya state’e yazabilirsin
+    }
+
+    router.push("/products");
   };
 
   return (
@@ -68,6 +65,7 @@ export default function LoginPage() {
             required
           />
         </div>
+
         <div className="mb-4">
           <label htmlFor="password" className="block">Şifre</label>
           <input
@@ -80,6 +78,7 @@ export default function LoginPage() {
             required
           />
         </div>
+
         <button
           type="submit"
           className="w-full p-2 bg-blue-600 text-white rounded"
