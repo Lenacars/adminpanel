@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { pdf, Font } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 import SozlesmePdf from "@/components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
 import React from "react";
 
-// Eğer font eklemiyorsan bu kısmı silebilirsin
-// Font.register({ ... })
-
+// Supabase bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,7 +13,25 @@ const supabase = createClient(
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat, userId } = body;
+    console.log("📥 Formdan gelen veri:", body);
+
+    const {
+      musteriAdi,
+      aracModel,
+      baslangicTarihi,
+      bitisTarihi,
+      fiyat,
+      userId,
+    } = body;
+
+    console.log("➡️ musteriAdi:", musteriAdi);
+    console.log("➡️ userId:", userId);
+
+    // Eksik alan kontrolü
+    if (!musteriAdi || !aracModel || !baslangicTarihi || !bitisTarihi || !fiyat || !userId) {
+      console.error("❌ Eksik alan var!");
+      return NextResponse.json({ error: "Eksik alan var" }, { status: 400 });
+    }
 
     // PDF oluştur
     const pdfBuffer = await pdf(
@@ -29,9 +45,9 @@ export async function POST(req: Request) {
     ).toBuffer();
 
     const filename = `sozlesme_${Date.now()}.pdf`;
-    const filePath = `sozlesme_${filename}.pdf`;
+    const filePath = `sozlesme_${filename}`;
 
-    // 📤 PDF’yi sozlesmeler bucket’ına yükle
+    // PDF'yi Supabase'e yükle
     const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
       .upload(filePath, pdfBuffer, {
@@ -40,15 +56,17 @@ export async function POST(req: Request) {
       });
 
     if (uploadError) {
-      console.error("PDF yükleme hatası:", uploadError.message);
+      console.error("❌ PDF yükleme hatası:", uploadError.message);
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    // 🔗 Public URL al
+    // Public URL al
     const { data: publicUrlData } = supabase.storage.from("sozlesmeler").getPublicUrl(filePath);
     const fileUrl = publicUrlData?.publicUrl;
 
-    // 📥 Supabase’e veritabanı kaydı ekle
+    console.log("📎 Oluşan dosya URL:", fileUrl);
+
+    // Veritabanına kayıt ekle
     const { error: insertError } = await supabase
       .from("sozlesmeler")
       .insert([
@@ -64,13 +82,19 @@ export async function POST(req: Request) {
       ]);
 
     if (insertError) {
-      console.error("Tabloya kayıt hatası:", insertError.message);
+      console.error("❌ Veritabanı kayıt hatası:", insertError.message);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
     return NextResponse.json({ url: fileUrl });
   } catch (err) {
-    console.error("Genel hata:", err);
-    return NextResponse.json({ error: "PDF oluşturulamadı", detay: String(err) }, { status: 500 });
+    console.error("❌ Genel hata:", err);
+    return NextResponse.json(
+      {
+        error: "PDF oluşturulamadı",
+        detay: String(err),
+      },
+      { status: 500 }
+    );
   }
 }
