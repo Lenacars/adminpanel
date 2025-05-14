@@ -2,19 +2,11 @@ import { NextResponse } from "next/server";
 import { pdf, Font } from "@react-pdf/renderer";
 import SozlesmePdf from "@/components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
-// fs ve path importları artık font yüklemesi için gerekmeyebilir.
-// Eğer projenizin başka bir yerinde kullanılmıyorsa kaldırılabilirler.
-// import fs from "fs";
-// import path from "path";
 import React from "react";
 
-// ✅ Font yüklemesi Google Fonts URL'si ile güncellendi
-Font.register({
-  family: "Open Sans",
-  src: "https://fonts.gstatic.com/s/opensans/v29/mem8YaGs126MiZpBA-UFVZ0e.ttf", // Görseldeki gibi Google Fonts URL'si ile güncellendi
-});
+// Eğer font eklemiyorsan bu kısmı silebilirsin
+// Font.register({ ... })
 
-// ✅ Supabase bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,11 +15,9 @@ const supabase = createClient(
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = body;
+    const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat, userId } = body;
 
-    console.log("📥 Gelen Form Verisi:", body);
-
-    // ✅ React.createElement ile PDF bileşeni oluştur
+    // PDF oluştur
     const pdfBuffer = await pdf(
       React.createElement(SozlesmePdf, {
         musteriAdi,
@@ -39,33 +29,48 @@ export async function POST(req: Request) {
     ).toBuffer();
 
     const filename = `sozlesme_${Date.now()}.pdf`;
-    const filePath = `sozlesmeler/${filename}`;
+    const filePath = `sozlesme_${filename}.pdf`;
 
-    // ✅ Supabase'e yükle
-    const { error } = await supabase.storage
-      .from("documents")
+    // 📤 PDF’yi sozlesmeler bucket’ına yükle
+    const { error: uploadError } = await supabase.storage
+      .from("sozlesmeler")
       .upload(filePath, pdfBuffer, {
         contentType: "application/pdf",
         upsert: true,
       });
 
-    if (error) {
-      console.error("❌ Supabase yükleme hatası:", error.message);
-      return NextResponse.json({ error: "Supabase yükleme hatası", detay: error.message }, { status: 500 });
+    if (uploadError) {
+      console.error("PDF yükleme hatası:", uploadError.message);
+      return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+    // 🔗 Public URL al
+    const { data: publicUrlData } = supabase.storage.from("sozlesmeler").getPublicUrl(filePath);
+    const fileUrl = publicUrlData?.publicUrl;
 
-    console.log("✅ Sözleşme başarıyla oluşturuldu:", data?.publicUrl);
-    return NextResponse.json({ url: data?.publicUrl });
+    // 📥 Supabase’e veritabanı kaydı ekle
+    const { error: insertError } = await supabase
+      .from("sozlesmeler")
+      .insert([
+        {
+          user_id: userId,
+          musteri_adi: musteriAdi,
+          arac_modeli: aracModel,
+          baslangic_tarihi: baslangicTarihi,
+          bitis_tarihi: bitisTarihi,
+          fiyat,
+          dosya_url: fileUrl,
+        },
+      ]);
+
+    if (insertError) {
+      console.error("Tabloya kayıt hatası:", insertError.message);
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ url: fileUrl });
   } catch (err) {
-    console.error("❌ PDF oluşturulamadı:", err);
-    return NextResponse.json(
-      {
-        error: "PDF oluşturulamadı",
-        detay: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 }
-    );
+    console.error("Genel hata:", err);
+    return NextResponse.json({ error: "PDF oluşturulamadı", detay: String(err) }, { status: 500 });
   }
 }
