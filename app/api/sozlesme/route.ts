@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
+import React from "react";
 import SozlesmePdf from "../../../components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
-import React from "react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,7 +73,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: fileUrl });
   } catch (err: any) {
-    console.error("❌ Genel hata:", err);
     return NextResponse.json({ error: "PDF oluşturulamadı", detay: String(err) }, { status: 500 });
   }
 }
