@@ -29,6 +29,9 @@ const SozlesmePdf = ({
   bitisTarihi = "",
   fiyat = "",
 }: SozlesmePdfProps) => {
+  const today = new Date();
+  const tarih = `${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`;
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -47,7 +50,7 @@ const SozlesmePdf = ({
           <Text>Tüm trafik cezaları, gecikmeler ve masraflar müşteri sorumluluğundadır.</Text>
         </View>
         <View style={styles.section}>
-          <Text>{`Tarih: ${new Date().toLocaleDateString("tr-TR")}`}</Text>
+          <Text>{`Tarih: ${tarih}`}</Text>
         </View>
         <View style={styles.section}>
           <Text>_______________________</Text>
