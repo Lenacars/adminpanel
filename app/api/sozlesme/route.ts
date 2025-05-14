@@ -1,28 +1,24 @@
-import React from "react"; // ✅ React tanımlı olmalı
+import React from "react";
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
 import SozlesmePdf from "@/components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 console.log("🔄 Sözleşme API başladı");
 
-// Supabase client başlatılıyor
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-console.log("🌍 SUPABASE URL:", supabaseUrl);
-console.log("🔐 SUPABASE KEY var mı:", !!supabaseKey);
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
   try {
     console.log("📩 POST isteği geldi");
-
     const body = await req.json();
-    console.log("📦 Gelen body:", body);
-
     const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = body;
 
     if (!musteriAdi || !aracModel || !baslangicTarihi || !bitisTarihi || !fiyat) {
@@ -31,22 +27,25 @@ export async function POST(req: Request) {
     }
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
-    console.log("📄 Dosya adı:", fileName);
+    const pdfPath = path.join(os.tmpdir(), fileName);
 
     const component = React.createElement(SozlesmePdf, {
-  musteriAdi: body?.musteriAdi ?? "",
-  aracModel: body?.aracModel ?? "",
-  baslangicTarihi: body?.baslangicTarihi ?? "",
-  bitisTarihi: body?.bitisTarihi ?? "",
-  fiyat: body?.fiyat ?? "",
-});
+      musteriAdi: musteriAdi ?? "",
+      aracModel: aracModel ?? "",
+      baslangicTarihi: baslangicTarihi ?? "",
+      bitisTarihi: bitisTarihi ?? "",
+      fiyat: fiyat ?? "",
+    });
 
     const pdfBuffer = await pdf(component).toBuffer();
-    console.log("✅ PDF buffer oluşturuldu. Boyut:", pdfBuffer.length);
+    fs.writeFileSync(pdfPath, pdfBuffer);
+    console.log("✅ PDF geçici olarak yazıldı:", pdfPath);
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const fileData = fs.readFileSync(pdfPath);
+
+    const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
-      .upload(fileName, pdfBuffer, {
+      .upload(fileName, fileData, {
         contentType: "application/pdf",
         upsert: true,
       });
@@ -56,8 +55,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "PDF yüklenemedi", error: uploadError }, { status: 500 });
     }
 
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/sozlesmeler/${fileName}`;
-    console.log("📂 PDF URL:", publicUrl);
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
 
     const { error: insertError } = await supabase.from("sozlesmeler").insert([
       {
@@ -71,12 +69,12 @@ export async function POST(req: Request) {
     ]);
 
     if (insertError) {
-      console.error("📛 DB kayıt hatası:", insertError);
-      return NextResponse.json({ message: "Veritabanına kayıt eklenemedi", error: insertError }, { status: 500 });
+      console.error("📛 Veritabanı hatası:", insertError);
+      return NextResponse.json({ message: "Veritabanına kayıt yapılamadı", error: insertError }, { status: 500 });
     }
 
-    console.log("✅ Başarıyla tamamlandı.");
-    return NextResponse.json({ message: "Başarıyla yüklendi", url: publicUrl });
+    console.log("✅ PDF başarıyla yüklendi:", publicUrl);
+    return NextResponse.json({ message: "Başarıyla tamamlandı", url: publicUrl });
   } catch (error) {
     console.error("🔥 Beklenmeyen sunucu hatası:", error);
     return NextResponse.json({ message: "Sunucu hatası", error }, { status: 500 });
