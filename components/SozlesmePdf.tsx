@@ -7,25 +7,24 @@ const styles = StyleSheet.create({
   bold: { fontWeight: "bold" },
 });
 
-interface SozlesmePdfProps {
+type SozlesmePdfProps = {
   musteriAdi?: string;
   aracModel?: string;
   baslangicTarihi?: string;
   bitisTarihi?: string;
   fiyat?: string;
-}
+};
 
-const SozlesmePdf = (props: SozlesmePdfProps) => {
+const SozlesmePdf = (inputProps: SozlesmePdfProps = {}) => {
   const {
     musteriAdi = "",
     aracModel = "",
     baslangicTarihi = "",
     bitisTarihi = "",
     fiyat = "",
-  } = props || {};
+  } = inputProps ?? {};
 
-  // 🪵 Konsola gelen propsları yaz
-  console.log("🧾 SozlesmePdf bileşeni props:", {
+  console.log("📄 SozlesmePdf props:", {
     musteriAdi,
     aracModel,
     baslangicTarihi,
