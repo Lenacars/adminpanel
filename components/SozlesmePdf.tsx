@@ -19,18 +19,16 @@ interface SozlesmePdfProps {
   aracModel: string;
   baslangicTarihi: string;
   bitisTarihi: string;
-  fiyat: string;
+  fiyat: string | number;
 }
 
-const SozlesmePdf = (props: SozlesmePdfProps) => {
-  const {
-    musteriAdi = "",
-    aracModel = "",
-    baslangicTarihi = "",
-    bitisTarihi = "",
-    fiyat = "",
-  } = props;
-
+const SozlesmePdf = ({
+  musteriAdi = "",
+  aracModel = "",
+  baslangicTarihi = "",
+  bitisTarihi = "",
+  fiyat = "",
+}: SozlesmePdfProps) => {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -38,11 +36,11 @@ const SozlesmePdf = (props: SozlesmePdfProps) => {
           <Text style={styles.bold}>LenaCars Araç Kiralama Sözleşmesi</Text>
         </View>
         <View style={styles.section}>
-          <Text>{`Müşteri Adı: ${musteriAdi}`}</Text>
-          <Text>{`Araç Modeli: ${aracModel}`}</Text>
-          <Text>{`Başlangıç Tarihi: ${baslangicTarihi}`}</Text>
-          <Text>{`Bitiş Tarihi: ${bitisTarihi}`}</Text>
-          <Text>{`Toplam Fiyat: ${fiyat} ₺`}</Text>
+          <Text>{`Müşteri Adı: ${String(musteriAdi)}`}</Text>
+          <Text>{`Araç Modeli: ${String(aracModel)}`}</Text>
+          <Text>{`Başlangıç Tarihi: ${String(baslangicTarihi)}`}</Text>
+          <Text>{`Bitiş Tarihi: ${String(bitisTarihi)}`}</Text>
+          <Text>{`Toplam Fiyat: ${String(fiyat)} ₺`}</Text>
         </View>
         <View style={styles.section}>
           <Text>Bu sözleşme LenaCars ile müşteri arasında hazırlanmıştır.</Text>
