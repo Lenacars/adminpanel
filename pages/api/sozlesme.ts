@@ -1,3 +1,4 @@
+import React from "react"; // ← BU YOKSA .createElement ÇALIŞMAZ
 import type { NextApiRequest, NextApiResponse } from "next";
 import { pdf } from "@react-pdf/renderer";
 import SozlesmePdf from "@/components/SozlesmePdf";
