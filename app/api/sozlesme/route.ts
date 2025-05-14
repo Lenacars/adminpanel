@@ -1,3 +1,4 @@
+import React from "react"; // ✅ React tanımlı olmalı
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
 import SozlesmePdf from "@/components/SozlesmePdf";
