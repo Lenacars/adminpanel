@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
 import React from "react";
-import SozlesmePdf from "../../../components/SozlesmePdf";
+import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -9,34 +9,23 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(req: Request) {
+// Geçici test bileşeni
+const DummyPdf = () => (
+  <Document>
+    <Page size="A4" style={{ padding: 40 }}>
+      <View>
+        <Text style={{ fontSize: 14, fontWeight: "bold" }}>✅ Test Başarılı</Text>
+        <Text>Bu PDF dışa aktarım sistemi doğru çalışıyor.</Text>
+      </View>
+    </Page>
+  </Document>
+);
+
+export async function POST() {
   try {
-    const body = await req.json();
+    const pdfBuffer = await pdf(<DummyPdf />).toBuffer();
 
-    const {
-      musteriAdi,
-      aracModel,
-      baslangicTarihi,
-      bitisTarihi,
-      fiyat,
-      userId,
-    } = body;
-
-    if (!musteriAdi || !aracModel || !baslangicTarihi || !bitisTarihi || !fiyat || !userId) {
-      return NextResponse.json({ error: "Eksik alan var" }, { status: 400 });
-    }
-
-    const pdfBuffer = await pdf(
-      React.createElement(SozlesmePdf, {
-        musteriAdi: String(musteriAdi),
-        aracModel: String(aracModel),
-        baslangicTarihi: String(baslangicTarihi),
-        bitisTarihi: String(bitisTarihi),
-        fiyat: String(fiyat),
-      })
-    ).toBuffer();
-
-    const filename = `sozlesme_${Date.now()}.pdf`;
+    const filename = `testpdf_${Date.now()}.pdf`;
     const filePath = `sozlesme_${filename}`;
 
     const { error: uploadError } = await supabase.storage
@@ -54,22 +43,6 @@ export async function POST(req: Request) {
       .from("sozlesmeler")
       .getPublicUrl(filePath);
     const fileUrl = publicUrlData?.publicUrl;
-
-    const { error: insertError } = await supabase.from("sozlesmeler").insert([
-      {
-        user_id: userId,
-        musteri_adi: musteriAdi,
-        arac_modeli: aracModel,
-        baslangic_tarihi: baslangicTarihi,
-        bitis_tarihi: bitisTarihi,
-        fiyat: fiyat,
-        dosya_url: fileUrl,
-      },
-    ]);
-
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
-    }
 
     return NextResponse.json({ url: fileUrl });
   } catch (err: any) {
