@@ -34,12 +34,12 @@ export async function POST(req: Request) {
     console.log("📄 Dosya adı:", fileName);
 
     const component = React.createElement(SozlesmePdf, {
-      musteriAdi,
-      aracModel,
-      baslangicTarihi,
-      bitisTarihi,
-      fiyat,
-    });
+  musteriAdi: musteriAdi || "",
+  aracModel: aracModel || "",
+  baslangicTarihi: baslangicTarihi || "",
+  bitisTarihi: bitisTarihi || "",
+  fiyat: fiyat || "",
+});
 
     const pdfBuffer = await pdf(component).toBuffer();
     console.log("✅ PDF buffer oluşturuldu. Boyut:", pdfBuffer.length);
