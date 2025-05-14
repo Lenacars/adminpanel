@@ -5,7 +5,6 @@ const styles = StyleSheet.create({
   page: {
     padding: 40,
     fontSize: 11,
-    fontFamily: "Open Sans",
   },
   section: {
     marginBottom: 10,
@@ -43,11 +42,11 @@ const SozlesmePdf = ({
         <Text>Toplam Fiyat: {fiyat} ₺</Text>
       </View>
       <View style={styles.section}>
-        <Text>Bu sözleşme, LenaCars ile yukarıdaki müşteri arasında hazırlanmıştır.</Text>
+        <Text>Bu sözleşme LenaCars ile müşteri arasında hazırlanmıştır.</Text>
         <Text>Tüm trafik cezaları, gecikmeler ve masraflar müşteri sorumluluğundadır.</Text>
       </View>
       <View style={styles.section}>
-        <Text>Tarih: {new Date().toLocaleDateString("tr-TR")}</Text>
+        <Text>Tarih: ............................</Text>
       </View>
       <View style={styles.section}>
         <Text>_______________________</Text>
