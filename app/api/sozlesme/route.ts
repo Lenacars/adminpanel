@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
-import { writeFile, readFile, unlink } from "fs/promises";
-import path from "path";
-import { spawn } from "child_process";
+import { pdf, Font } from "@react-pdf/renderer";
+import SozlesmePdf from "@/components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
+import fs from "fs";
+import path from "path";
+
+// Open Sans fontu yükle
+const fontBuffer = fs.readFileSync(path.resolve("fonts/OpenSans-Regular.ttf"));
+Font.register({
+  family: "Open Sans",
+  fonts: [{ src: fontBuffer }],
+});
 
 // Supabase bağlantısı
 const supabase = createClient(
@@ -11,56 +19,37 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
+    const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = body;
 
-  // Geçici klasöre JSON veri dosyası yaz
-  const filename = `sozlesme_${Date.now()}`;
-  const tempDir = "/tmp";
-  const jsonPath = path.join(tempDir, `${filename}.json`);
-  const outputPdfPath = path.join(tempDir, `${filename}.pdf`);
+    const pdfBuffer = await pdf(
+      <SozlesmePdf
+        musteriAdi={musteriAdi}
+        aracModel={aracModel}
+        baslangicTarihi={baslangicTarihi}
+        bitisTarihi={bitisTarihi}
+        fiyat={fiyat}
+      />
+    ).toBuffer();
 
-  await writeFile(jsonPath, JSON.stringify(body, null, 2));
+    const filename = `sozlesme_${Date.now()}.pdf`;
+    const filePath = `sozlesmeler/${filename}`;
 
-  // Python scripti çalıştır
-  const scriptPath = path.join(process.cwd(), "scripts", "sozlesme", "sozlesme_olustur.py");
+    const { error } = await supabase.storage
+      .from("documents")
+      .upload(filePath, pdfBuffer, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
 
-  const pythonProcess = spawn("python3", [scriptPath, jsonPath, outputPdfPath]);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
-  const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
-    pythonProcess.on("close", (code) => {
-      if (code === 0) {
-        resolve({ success: true });
-      } else {
-        resolve({ success: false, error: `Kod: ${code}` });
-      }
-    });
-  });
-
-  if (!result.success) {
-    return NextResponse.json({ error: "Python script çalıştırılamadı", detay: result.error }, { status: 500 });
+    const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+    return NextResponse.json({ url: data?.publicUrl });
+  } catch (err) {
+    return NextResponse.json({ error: "PDF oluşturulamadı", detay: String(err) }, { status: 500 });
   }
-
-  // PDF dosyasını oku ve Supabase'e yükle
-  const fileBuffer = await readFile(outputPdfPath);
-  const storagePath = `sozlesmeler/${filename}.pdf`;
-
-  const { data, error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(storagePath, fileBuffer, {
-      contentType: "application/pdf",
-      upsert: true,
-    });
-
-  if (uploadError) {
-    return NextResponse.json({ error: "PDF yüklenemedi", detay: uploadError.message }, { status: 500 });
-  }
-
-  // Dosya URL'sini al
-  const { data: publicUrlData } = supabase.storage.from("documents").getPublicUrl(storagePath);
-
-  // Geçici dosyaları sil
-  await unlink(jsonPath);
-  await unlink(outputPdfPath);
-
-  return NextResponse.json({ url: publicUrlData?.publicUrl });
 }
