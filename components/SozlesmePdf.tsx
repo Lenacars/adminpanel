@@ -47,8 +47,6 @@ const SozlesmePdf = ({
       </View>
       <View style={styles.section}>
         <Text>Tarih: ............................</Text>
-      </View>
-      <View style={styles.section}>
         <Text>_______________________</Text>
         <Text>Müşteri İmzası</Text>
       </View>
