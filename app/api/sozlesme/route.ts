@@ -34,11 +34,11 @@ export async function POST(req: Request) {
     console.log("📄 Dosya adı:", fileName);
 
     const component = React.createElement(SozlesmePdf, {
-  musteriAdi: musteriAdi || "",
-  aracModel: aracModel || "",
-  baslangicTarihi: baslangicTarihi || "",
-  bitisTarihi: bitisTarihi || "",
-  fiyat: fiyat || "",
+  musteriAdi: body?.musteriAdi ?? "",
+  aracModel: body?.aracModel ?? "",
+  baslangicTarihi: body?.baslangicTarihi ?? "",
+  bitisTarihi: body?.bitisTarihi ?? "",
+  fiyat: body?.fiyat ?? "",
 });
 
     const pdfBuffer = await pdf(component).toBuffer();
