@@ -6,14 +6,14 @@ import fs from "fs";
 import path from "path";
 import React from "react";
 
-// Open Sans fontunu kaydet
+// ✅ Font yükle
 const fontBuffer = fs.readFileSync(path.resolve("fonts/OpenSans-Regular.ttf"));
 Font.register({
   family: "Open Sans",
   fonts: [{ src: fontBuffer }],
 });
 
-// Supabase bağlantısı
+// ✅ Supabase bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -24,7 +24,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = body;
 
-    // ✅ JSX yerine React.createElement kullan
+    console.log("📥 Gelen Form Verisi:", body);
+
+    // ✅ React.createElement ile PDF bileşeni oluştur
     const pdfBuffer = await pdf(
       React.createElement(SozlesmePdf, {
         musteriAdi,
@@ -38,6 +40,7 @@ export async function POST(req: Request) {
     const filename = `sozlesme_${Date.now()}.pdf`;
     const filePath = `sozlesmeler/${filename}`;
 
+    // ✅ Supabase'e yükle
     const { error } = await supabase.storage
       .from("documents")
       .upload(filePath, pdfBuffer, {
@@ -46,12 +49,22 @@ export async function POST(req: Request) {
       });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("❌ Supabase yükleme hatası:", error.message);
+      return NextResponse.json({ error: "Supabase yükleme hatası", detay: error.message }, { status: 500 });
     }
 
     const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+
+    console.log("✅ Sözleşme başarıyla oluşturuldu:", data?.publicUrl);
     return NextResponse.json({ url: data?.publicUrl });
   } catch (err) {
-    return NextResponse.json({ error: "PDF oluşturulamadı", detay: String(err) }, { status: 500 });
+    console.error("❌ PDF oluşturulamadı:", err);
+    return NextResponse.json(
+      {
+        error: "PDF oluşturulamadı",
+        detay: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 }
+    );
   }
 }
