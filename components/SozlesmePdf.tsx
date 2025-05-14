@@ -2,33 +2,31 @@ import React from "react";
 import { Page, Text, View, Document, StyleSheet } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
-  page: {
-    padding: 40,
-    fontSize: 11,
-    fontFamily: "Helvetica",
-  },
-  section: {
-    marginBottom: 10,
-  },
-  bold: {
-    fontWeight: "bold",
-  },
+  page: { padding: 40, fontSize: 11, fontFamily: "Helvetica" },
+  section: { marginBottom: 10 },
+  bold: { fontWeight: "bold" },
 });
 
 interface SozlesmePdfProps {
-  musteriAdi: string;
-  aracModel: string;
-  baslangicTarihi: string;
-  bitisTarihi: string;
-  fiyat: string;
+  musteriAdi?: string;
+  aracModel?: string;
+  baslangicTarihi?: string;
+  bitisTarihi?: string;
+  fiyat?: string;
 }
 
-const SozlesmePdf = ({ musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat }: SozlesmePdfProps) => (
+const SozlesmePdf = ({
+  musteriAdi = "",
+  aracModel = "",
+  baslangicTarihi = "",
+  bitisTarihi = "",
+  fiyat = "",
+}: SozlesmePdfProps) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <View style={styles.section}>
         <Text style={styles.bold}>ARAÇ KİRALAMA SÖZLEŞMESİ</Text>
-        <Text>{`\nTARİH: ${new Date().toLocaleDateString()}`}</Text>
+        <Text>{`\nTARİH: ${new Date().toLocaleDateString("tr-TR")}`}</Text>
       </View>
 
       <View style={styles.section}>
