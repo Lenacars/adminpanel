@@ -4,20 +4,18 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 
 export default function SozlesmeFormPage() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    musteriAdi: "",
-    aracModel: "",
-    baslangicTarihi: "",
-    bitisTarihi: "",
-    fiyat: "",
+    unvan: "",
+    adres: "",
+    vergiBilgisi: "",
+    email: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -33,38 +31,43 @@ export default function SozlesmeFormPage() {
     setLoading(false);
 
     if (res.ok) {
-      toast({ title: "✅ Sözleşme Oluşturuldu", description: "PDF başarıyla yüklendi." });
+      toast({
+        title: "✅ Sözleşme Oluşturuldu",
+        description: "PDF başarıyla oluşturuldu.",
+      });
     } else {
-      toast({ title: "❌ Hata", description: data.message || "Bir sorun oluştu." });
+      toast({
+        title: "❌ Hata",
+        description: data.message || "Bir hata oluştu.",
+      });
     }
   };
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white shadow rounded space-y-4">
-      <h2 className="text-lg font-semibold">Araç Kiralama Sözleşmesi Oluştur</h2>
+      <h2 className="text-lg font-semibold text-center">Sözleşme Bilgileri</h2>
+
       <div>
-        <Label>Müşteri Adı</Label>
-        <Input name="musteriAdi" onChange={handleChange} value={form.musteriAdi} />
+        <Label>Kiracı Unvanı</Label>
+        <Input name="unvan" value={form.unvan} onChange={handleChange} />
       </div>
+
       <div>
-        <Label>Araç Model</Label>
-        <Input name="aracModel" onChange={handleChange} value={form.aracModel} />
+        <Label>Kiracı Adresi</Label>
+        <Input name="adres" value={form.adres} onChange={handleChange} />
       </div>
-      <div className="flex gap-4">
-        <div className="flex-1">
-          <Label>Başlangıç Tarihi</Label>
-          <Input type="date" name="baslangicTarihi" onChange={handleChange} value={form.baslangicTarihi} />
-        </div>
-        <div className="flex-1">
-          <Label>Bitiş Tarihi</Label>
-          <Input type="date" name="bitisTarihi" onChange={handleChange} value={form.bitisTarihi} />
-        </div>
-      </div>
+
       <div>
-        <Label>Kira Bedeli (₺)</Label>
-        <Input name="fiyat" onChange={handleChange} value={form.fiyat} />
+        <Label>Vergi Dairesi - Vergi Numarası</Label>
+        <Input name="vergiBilgisi" value={form.vergiBilgisi} onChange={handleChange} />
       </div>
-      <Button onClick={handleSubmit} disabled={loading} className="w-full mt-4">
+
+      <div>
+        <Label>Fatura E-posta Adresi</Label>
+        <Input name="email" value={form.email} onChange={handleChange} />
+      </div>
+
+      <Button className="w-full mt-4" onClick={handleSubmit} disabled={loading}>
         {loading ? "Oluşturuluyor..." : "Sözleşme PDF Oluştur"}
       </Button>
     </div>
