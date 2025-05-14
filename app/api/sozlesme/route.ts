@@ -9,21 +9,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Geçici test bileşeni
-const DummyPdf = () => (
-  <Document>
-    <Page size="A4" style={{ padding: 40 }}>
-      <View>
-        <Text style={{ fontSize: 14, fontWeight: "bold" }}>✅ Test Başarılı</Text>
-        <Text>Bu PDF dışa aktarım sistemi doğru çalışıyor.</Text>
-      </View>
-    </Page>
-  </Document>
-);
+const styles = StyleSheet.create({
+  page: { padding: 40, fontSize: 11 },
+  section: { marginBottom: 10 },
+});
+
+const DummyPdf = () =>
+  React.createElement(
+    Document,
+    null,
+    React.createElement(
+      Page,
+      { size: "A4", style: styles.page },
+      React.createElement(
+        View,
+        { style: styles.section },
+        React.createElement(Text, { style: { fontSize: 14, fontWeight: "bold" } }, "✅ Test Başarılı"),
+        React.createElement(Text, null, "Bu PDF dışa aktarım sistemi doğru çalışıyor.")
+      )
+    )
+  );
 
 export async function POST() {
   try {
-    const pdfBuffer = await pdf(<DummyPdf />).toBuffer();
+    const pdfBuffer = await pdf(React.createElement(DummyPdf)).toBuffer();
 
     const filename = `testpdf_${Date.now()}.pdf`;
     const filePath = `sozlesme_${filename}`;
@@ -46,6 +55,9 @@ export async function POST() {
 
     return NextResponse.json({ url: fileUrl });
   } catch (err: any) {
-    return NextResponse.json({ error: "PDF oluşturulamadı", detay: String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: "PDF oluşturulamadı", detay: String(err) },
+      { status: 500 }
+    );
   }
 }
