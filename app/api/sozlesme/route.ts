@@ -3,8 +3,6 @@ import { pdf } from "@react-pdf/renderer";
 import SozlesmePdf from "@/components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import { writeFile } from "fs/promises";
-import path from "path";
 
 // Supabase bağlantısı
 const supabase = createClient(
@@ -18,14 +16,16 @@ export async function POST(req: Request) {
     const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = body;
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
+
+    // ✅ React PDF bileşeni createElement ile oluşturulmalı
     const pdfBuffer = await pdf(
-      <SozlesmePdf
-        musteriAdi={musteriAdi}
-        aracModel={aracModel}
-        baslangicTarihi={baslangicTarihi}
-        bitisTarihi={bitisTarihi}
-        fiyat={fiyat}
-      />
+      React.createElement(SozlesmePdf, {
+        musteriAdi,
+        aracModel,
+        baslangicTarihi,
+        bitisTarihi,
+        fiyat,
+      })
     ).toBuffer();
 
     const { data: uploadData, error: uploadError } = await supabase.storage
