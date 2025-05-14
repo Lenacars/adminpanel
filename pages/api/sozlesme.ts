@@ -1,5 +1,3 @@
-// app/api/sozlesme/route.ts
-
 import { NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
 import fs from "fs";
@@ -16,7 +14,9 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
+    // ⛔ DÜZENLENDİ BURASI
+    const body = await req.json();
+    const { musteriAdi, adres, vergiDairesi, eposta } = body;
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
@@ -28,18 +28,17 @@ export async function POST(req: Request) {
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
-    // Başlık
     doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown(1.5);
     doc.fontSize(10);
 
-    // Formdan gelen müşteri bilgileri
+    // Form alanları
     doc.text(`Kiracı Unvanı: ${musteriAdi || "..............................................................."}`);
     doc.text(`Kiracı Adresi: ${adres || "..............................................................."}`);
     doc.text(`Kiracı Vergi Dairesi - Vergi Numarası: ${vergiDairesi || "................................"}`);
     doc.text(`Fatura Bildirim e-posta adresi: ${eposta || "..........................................."}`);
     doc.text(`Kiracı Kısa İsmi: 'MÜŞTERİ'`).moveDown();
 
-    // Sözleşme metnini txt dosyasından oku
+    // .txt sözleşme metni
     const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
     const fullText = fs.readFileSync(sozlesmePath, "utf-8");
 
@@ -54,7 +53,6 @@ export async function POST(req: Request) {
     await new Promise((resolve) => stream.on("finish", resolve));
     const fileBuffer = fs.readFileSync(tempPath);
 
-    // Supabase'e yükle
     const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
       .upload(fileName, fileBuffer, {
@@ -68,7 +66,6 @@ export async function POST(req: Request) {
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
 
-    // Veritabanına kaydet
     await supabase.from("sozlesmeler").insert([
       {
         musteri_adi: musteriAdi || "Boş",
