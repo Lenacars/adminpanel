@@ -23,11 +23,11 @@ interface SozlesmePdfProps {
 }
 
 const SozlesmePdf = ({
-  musteriAdi,
-  aracModel,
-  baslangicTarihi,
-  bitisTarihi,
-  fiyat,
+  musteriAdi = "",
+  aracModel = "",
+  baslangicTarihi = "",
+  bitisTarihi = "",
+  fiyat = "",
 }: SozlesmePdfProps) => (
   <Document>
     <Page size="A4" style={styles.page}>
@@ -35,11 +35,11 @@ const SozlesmePdf = ({
         <Text style={styles.bold}>LenaCars Araç Kiralama Sözleşmesi</Text>
       </View>
       <View style={styles.section}>
-        <Text>Müşteri Adı: {musteriAdi}</Text>
-        <Text>Araç Modeli: {aracModel}</Text>
-        <Text>Başlangıç Tarihi: {baslangicTarihi}</Text>
-        <Text>Bitiş Tarihi: {bitisTarihi}</Text>
-        <Text>Toplam Fiyat: {fiyat} ₺</Text>
+        <Text>{`Müşteri Adı: ${musteriAdi}`}</Text>
+        <Text>{`Araç Modeli: ${aracModel}`}</Text>
+        <Text>{`Başlangıç Tarihi: ${baslangicTarihi}`}</Text>
+        <Text>{`Bitiş Tarihi: ${bitisTarihi}`}</Text>
+        <Text>{`Toplam Fiyat: ${fiyat} ₺`}</Text>
       </View>
       <View style={styles.section}>
         <Text>Bu sözleşme LenaCars ile müşteri arasında hazırlanmıştır.</Text>
