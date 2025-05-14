@@ -4,6 +4,9 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { createClient } from "@supabase/supabase-js";
 
+// Node.js runtime kullan (ÖNEMLİ!)
+export const runtime = 'nodejs';
+
 // Detaylı log ekleyelim
 console.log("🔍 API Route başlatılıyor...");
 console.log("🔍 Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
