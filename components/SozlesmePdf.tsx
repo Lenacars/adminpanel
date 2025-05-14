@@ -8,20 +8,31 @@ const styles = StyleSheet.create({
 });
 
 interface SozlesmePdfProps {
-  musteriAdi: string;
-  aracModel: string;
-  baslangicTarihi: string;
-  bitisTarihi: string;
-  fiyat: string;
+  musteriAdi?: string;
+  aracModel?: string;
+  baslangicTarihi?: string;
+  bitisTarihi?: string;
+  fiyat?: string;
 }
 
-const SozlesmePdf = ({
-  musteriAdi = "",
-  aracModel = "",
-  baslangicTarihi = "",
-  bitisTarihi = "",
-  fiyat = "",
-}: Partial<SozlesmePdfProps>) => {
+const SozlesmePdf = (props: SozlesmePdfProps) => {
+  const {
+    musteriAdi = "",
+    aracModel = "",
+    baslangicTarihi = "",
+    bitisTarihi = "",
+    fiyat = "",
+  } = props || {};
+
+  // 🪵 Konsola gelen propsları yaz
+  console.log("🧾 SozlesmePdf bileşeni props:", {
+    musteriAdi,
+    aracModel,
+    baslangicTarihi,
+    bitisTarihi,
+    fiyat,
+  });
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
