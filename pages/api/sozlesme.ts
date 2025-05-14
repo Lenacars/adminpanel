@@ -6,44 +6,39 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase istemcisi
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Sadece POST isteği desteklenmektedir." });
-  }
-
+export async function POST(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = req.body;
+    const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
-    // Font
-    const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
+    const fontPath = path.join(process.cwd(), "public", "fonts", "OpenSans-Regular.ttf");
     doc.font(fontPath);
 
-    // PDF akışı
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
-    // Başlık ve boş alanlar
+    // Başlık
     doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown(1.5);
     doc.fontSize(10);
-    doc.text("Kiracı Unvanı: ...............................................................");
-    doc.text("Kiracı Adresi: ...............................................................");
-    doc.text("Kiracı Vergi Dairesi - Vergi Numarası: ................................");
-    doc.text("Fatura Bildirim e-posta adresi: ...........................................");
-    doc.text("Kiracı Kısa İsmi: 'MÜŞTERİ'").moveDown();
 
-    // Metni public/sozlesme-metni.txt dosyasından oku
+    // Müşteri Bilgileri
+    doc.text(`Kiracı Unvanı: ${musteriAdi || "..............................................................."}`);
+    doc.text(`Kiracı Adresi: ${adres || "..............................................................."}`);
+    doc.text(`Kiracı Vergi Dairesi - Vergi Numarası: ${vergiDairesi || "................................"}`);
+    doc.text(`Fatura Bildirim e-posta adresi: ${eposta || "..........................................."}`);
+    doc.text(`Kiracı Kısa İsmi: 'MÜŞTERİ'`).moveDown();
+
+    // Sözleşme Metni
     const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
-    const fullText = fs.readFileSync(sozlesmePath, "utf8");
+    const fullText = fs.readFileSync(sozlesmePath, "utf-8");
 
     const satirlar = fullText.split("\n");
     for (let i = 0; i < satirlar.length; i++) {
@@ -52,7 +47,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     doc.end();
-
     await new Promise((resolve) => stream.on("finish", resolve));
     const fileBuffer = fs.readFileSync(tempPath);
 
@@ -63,19 +57,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         upsert: true,
       });
 
-    if (uploadError) {
-      return res.status(500).json({ message: "Yükleme hatası", error: uploadError });
-    }
+    if (uploadError) return res.status(500).json({ message: "Yükleme hatası", error: uploadError });
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
 
     await supabase.from("sozlesmeler").insert([
       {
         musteri_adi: musteriAdi || "Boş",
-        arac_model: aracModel || "Boş",
-        baslangic_tarihi: baslangicTarihi || null,
-        bitis_tarihi: bitisTarihi || null,
-        fiyat: fiyat || 0,
+        adres: adres || "Boş",
+        vergi_dairesi: vergiDairesi || "Boş",
+        eposta: eposta || "Boş",
         pdf_url: publicUrl,
       },
     ]);
