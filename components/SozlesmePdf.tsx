@@ -15,11 +15,11 @@ const styles = StyleSheet.create({
 });
 
 interface SozlesmePdfProps {
-  musteriAdi: string;
-  aracModel: string;
-  baslangicTarihi: string;
-  bitisTarihi: string;
-  fiyat: string;
+  musteriAdi?: string;
+  aracModel?: string;
+  baslangicTarihi?: string;
+  bitisTarihi?: string;
+  fiyat?: string;
 }
 
 const SozlesmePdf = ({
