@@ -22,13 +22,13 @@ interface SozlesmePdfProps {
   fiyat?: string;
 }
 
-const SozlesmePdf = ({
+const SozlesmePdf: React.FC<SozlesmePdfProps> = ({
   musteriAdi = "",
   aracModel = "",
   baslangicTarihi = "",
   bitisTarihi = "",
   fiyat = "",
-}: SozlesmePdfProps) => {
+}) => {
   const today = new Date();
   const tarih = `${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`;
 
