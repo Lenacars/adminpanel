@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function SozlesmePage() {
+  const [userId, setUserId] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     musteriAdi: "",
     aracModel: "",
@@ -16,16 +24,31 @@ export default function SozlesmePage() {
 
   const [pdfUrl, setPdfUrl] = useState("");
 
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async () => {
+    if (!userId) {
+      alert("Giriş yapmadan sözleşme oluşturamazsınız.");
+      return;
+    }
+
+    const formWithUser = { ...form, userId };
+
     const res = await fetch("/api/sozlesme", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(formWithUser),
     });
 
     const data = await res.json();
@@ -33,7 +56,7 @@ export default function SozlesmePage() {
       setPdfUrl(data.url);
       alert("✅ Sözleşme başarıyla oluşturuldu!");
     } else {
-      alert("❌ Sözleşme oluşturulamadı.");
+      alert("❌ Sözleşme oluşturulamadı: " + (data?.error || "Bilinmeyen hata"));
     }
   };
 
