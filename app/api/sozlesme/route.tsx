@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
 import { createClient } from "@supabase/supabase-js";
-import SozlesmePdf from "@/components/SozlesmePdf"; // << Önemli: doğru path!
 import React from "react";
+import SozlesmePdf from "@/components/SozlesmePdf";
 
-// Runtime tanımla
-export const runtime = 'nodejs';
+// Runtime ortamını belirtiyoruz
+export const runtime = "nodejs";
 
-// Supabase client oluştur
+// Supabase client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
-// POST metodunu güncelle
 export async function POST(req: Request) {
   console.log("📥 POST isteği geldi");
+
   try {
     const body = await req.json();
 
@@ -29,8 +29,8 @@ export async function POST(req: Request) {
 
     console.log("🧾 Gelen veriler:", body);
 
-    // PDF bileşeni oluştur
-    const component = (
+    // Doğrudan bileşeni JSX olarak pdf'e veriyoruz
+    const pdfElement = (
       <SozlesmePdf
         musteriAdi={musteriAdi}
         aracModel={aracModel}
@@ -40,8 +40,8 @@ export async function POST(req: Request) {
       />
     );
 
-    const pdfBuffer = await pdf(component).toBuffer();
-    console.log("✅ PDF oluşturuldu:", pdfBuffer.length, "byte");
+    const pdfBuffer = await pdf(pdfElement).toBuffer();
+    console.log("✅ PDF oluşturuldu. Boyut:", pdfBuffer.length, "byte");
 
     const filePath = `sozlesme_${Date.now()}.pdf`;
 
@@ -62,6 +62,7 @@ export async function POST(req: Request) {
       .getPublicUrl(filePath);
 
     const fileUrl = publicUrlData?.publicUrl;
+
     console.log("🔗 PDF URL:", fileUrl);
 
     return NextResponse.json({ url: fileUrl });
