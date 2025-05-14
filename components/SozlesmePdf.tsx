@@ -5,8 +5,9 @@ import {
   View,
   Document,
   StyleSheet,
-  Font,
 } from "@react-pdf/renderer";
+
+// Helvetica'nın yüklü olduğunu varsayıyoruz, özel font gerekirse Font.register eklenir
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 11, fontFamily: "Helvetica" },
@@ -29,14 +30,7 @@ const SozlesmePdf: React.FC<SozlesmePdfProps> = ({
   bitisTarihi = "",
   fiyat = "",
 }) => {
-  // PDF içi console.log sadece local çalışır ama `toBuffer` aşamasında bile parse eder
-  console.log("✅ SozlesmePdf verisi:", {
-    musteriAdi,
-    aracModel,
-    baslangicTarihi,
-    bitisTarihi,
-    fiyat,
-  });
+  const kiraBedeli = typeof fiyat === "number" ? fiyat.toFixed(2) : fiyat?.toString() || "0";
 
   return (
     <Document>
@@ -54,14 +48,15 @@ const SozlesmePdf: React.FC<SozlesmePdfProps> = ({
         <View style={styles.section}>
           <Text style={styles.bold}>ARAÇ BİLGİLERİ</Text>
           <Text>Model: {aracModel || "-"}</Text>
-          <Text>Kiralama Süresi: {baslangicTarihi || "-"} → {bitisTarihi || "-"}</Text>
-          <Text>Kira Bedeli: {fiyat?.toString() || "0"} ₺</Text>
+          <Text>Süre: {baslangicTarihi || "-"} → {bitisTarihi || "-"}</Text>
+          <Text>Bedel: {kiraBedeli} ₺</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.bold}>GENEL HÜKÜMLER</Text>
           <Text>- Bu sözleşme {musteriAdi || "-"} ile LenaCars arasında geçerlidir.</Text>
           <Text>- Araç {baslangicTarihi || "-"} - {bitisTarihi || "-"} arası kiralanmıştır.</Text>
+          <Text>- Bedel: {kiraBedeli} ₺ olarak tahsil edilmiştir.</Text>
         </View>
 
         <View style={styles.section}>
