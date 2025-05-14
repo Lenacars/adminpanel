@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
-import SozlesmePdf from "@/components/SozlesmePdf";
+import SozlesmePdf from "../../../components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
 import React from "react";
 
