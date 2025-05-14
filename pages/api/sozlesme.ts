@@ -8,38 +8,44 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-console.log("📦 API dış modüller yüklendi");
+console.log("🔁 API modüller yüklendi");
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+console.log("🌐 Supabase client oluşturuldu");
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("🟡 API çalıştı: /api/sozlesme");
 
   if (req.method !== "POST") {
-    console.warn("❌ Desteklenmeyen metod:", req.method);
-    return res.status(405).json({ message: "Sadece POST isteği desteklenir" });
+    console.warn("⛔ Geçersiz method:", req.method);
+    return res.status(405).json({ message: "Sadece POST desteklenir" });
   }
 
   try {
+    console.log("📥 Request alındı");
     const body = req.body;
-    console.log("📥 Gelen body:", body);
+    console.log("📦 Body içeriği:", body);
 
     const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = body;
 
     if (!musteriAdi || !aracModel || !baslangicTarihi || !bitisTarihi || !fiyat) {
-      return res.status(400).json({ message: "Eksik alanlar var" });
+      console.error("❌ Eksik alanlar:", { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat });
+      return res.status(400).json({ message: "Zorunlu alanlar eksik." });
     }
 
     const fiyatParsed = Number(fiyat);
     if (isNaN(fiyatParsed)) {
-      return res.status(400).json({ message: "Fiyat geçerli bir sayı olmalıdır" });
+      console.error("❌ Geçersiz fiyat:", fiyat);
+      return res.status(400).json({ message: "Fiyat sayısal bir değer olmalıdır." });
     }
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
+    console.log("📄 Geçici PDF yolu:", tempPath);
 
     const pdfProps = {
       musteriAdi: musteriAdi ?? "",
@@ -49,12 +55,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       fiyat: fiyatParsed,
     };
 
-    console.log("📄 PDF props:", pdfProps);
+    console.log("📤 PDF bileşen props:", pdfProps);
 
-    const component = React.createElement(SozlesmePdf, pdfProps);
-    const pdfBuffer = await pdf(component).toBuffer();
+    let pdfBuffer;
+    try {
+      console.log("⚙️ React.createElement başlatılıyor...");
+      const component = React.createElement(SozlesmePdf, pdfProps);
+      console.log("✅ React bileşeni oluşturuldu");
+
+      console.log("📄 PDF buffer üretimi başlıyor...");
+      pdfBuffer = await pdf(component).toBuffer();
+      console.log("✅ PDF buffer üretildi, boyut:", pdfBuffer.length);
+    } catch (pdfError: any) {
+      console.error("🔥 PDF oluşturma hatası:", {
+        message: pdfError?.message,
+        name: pdfError?.name,
+        stack: pdfError?.stack,
+      });
+      return res.status(500).json({
+        message: "PDF oluşturulamadı",
+        error: {
+          message: pdfError?.message,
+          name: pdfError?.name,
+          stack: pdfError?.stack,
+        },
+      });
+    }
+
     fs.writeFileSync(tempPath, pdfBuffer);
+    console.log("📁 PDF temp dosyasına yazıldı");
+
     const fileData = fs.readFileSync(tempPath);
+    console.log("📥 PDF dosyası okundu, byte:", fileData.length);
 
     const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
@@ -64,10 +96,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
     if (uploadError) {
+      console.error("🚨 Supabase upload hatası:", uploadError);
       return res.status(500).json({ message: "PDF yüklenemedi", error: uploadError });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
+    console.log("🔗 PDF Supabase URL:", publicUrl);
 
     const { error: insertError } = await supabase.from("sozlesmeler").insert([
       {
@@ -81,13 +115,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ]);
 
     if (insertError) {
-      return res.status(500).json({ message: "Veritabanı kaydı hatası", error: insertError });
+      console.error("📛 Supabase kayıt hatası:", insertError);
+      return res.status(500).json({ message: "Veritabanı hatası", error: insertError });
     }
 
-    console.log("✅ Sözleşme PDF Supabase'e yüklendi:", publicUrl);
+    console.log("✅ Sözleşme kaydı ve PDF tamamlandı");
     return res.status(200).json({ message: "PDF başarıyla yüklendi", url: publicUrl });
+
   } catch (error: any) {
-    console.error("🔥 Hata:", error?.message || error);
-    return res.status(500).json({ message: "Sunucu hatası", error });
+    console.error("🔥 Genel hata:", {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+      full: error,
+    });
+
+    return res.status(500).json({
+      message: "Sunucu hatası",
+      error: {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      },
+    });
   }
 }
