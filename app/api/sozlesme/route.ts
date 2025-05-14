@@ -16,23 +16,46 @@ export async function POST(req: Request) {
 
     const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat, userId } = body;
 
+    // 🛡️ Eksik veya hatalı alan kontrolü
     if (!musteriAdi || !aracModel || !baslangicTarihi || !bitisTarihi || !fiyat || !userId) {
+      console.error("❌ Eksik alan var!");
       return NextResponse.json({ error: "Eksik alan var" }, { status: 400 });
     }
 
+    // ✅ PDF bileşenine geçecek veriler loglanıyor
+    console.log("📄 PDF’e giden veriler:", {
+      musteriAdi,
+      aracModel,
+      baslangicTarihi,
+      bitisTarihi,
+      fiyat,
+    });
+
+    // 🧠 Güvenlik: tüm alanlar string mi kontrolü
+    const pdfPropsValid = [musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat].every(
+      (val) => typeof val === "string"
+    );
+
+    if (!pdfPropsValid) {
+      console.error("❌ PDF'e geçersiz tipte veri gönderildi.");
+      return NextResponse.json({ error: "Geçersiz veri tipi" }, { status: 400 });
+    }
+
+    // PDF oluştur
     const pdfBuffer = await pdf(
       React.createElement(SozlesmePdf, {
         musteriAdi,
         aracModel,
         baslangicTarihi,
         bitisTarihi,
-        fiyat,
+        fiyat: String(fiyat), // ✅ sayıysa da string olarak gönder
       })
     ).toBuffer();
 
     const filename = `sozlesme_${Date.now()}.pdf`;
     const filePath = `sozlesme_${filename}`;
 
+    // Supabase storage’a yükle
     const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
       .upload(filePath, pdfBuffer, {
@@ -41,12 +64,14 @@ export async function POST(req: Request) {
       });
 
     if (uploadError) {
+      console.error("❌ PDF yükleme hatası:", uploadError.message);
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
     const { data: publicUrlData } = supabase.storage.from("sozlesmeler").getPublicUrl(filePath);
     const fileUrl = publicUrlData?.publicUrl;
 
+    // Veritabanına kayıt
     const { error: insertError } = await supabase.from("sozlesmeler").insert([
       {
         user_id: userId,
@@ -60,6 +85,7 @@ export async function POST(req: Request) {
     ]);
 
     if (insertError) {
+      console.error("❌ Veritabanı kayıt hatası:", insertError.message);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
