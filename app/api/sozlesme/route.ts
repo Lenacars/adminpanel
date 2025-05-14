@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { pdf, Font } from "@react-pdf/renderer";
 import SozlesmePdf from "@/components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
-import fs from "fs";
-import path from "path";
+// fs ve path importları artık font yüklemesi için gerekmeyebilir.
+// Eğer projenizin başka bir yerinde kullanılmıyorsa kaldırılabilirler.
+// import fs from "fs";
+// import path from "path";
 import React from "react";
 
-// ✅ Font yükle
-const fontBuffer = fs.readFileSync(path.resolve("fonts/OpenSans-Regular.ttf"));
+// ✅ Font yüklemesi Google Fonts URL'si ile güncellendi
 Font.register({
   family: "Open Sans",
-  fonts: [{ src: fontBuffer }],
+  src: "https://fonts.gstatic.com/s/opensans/v29/mem8YaGs126MiZpBA-UFVZ0e.ttf", // Görseldeki gibi Google Fonts URL'si ile güncellendi
 });
 
 // ✅ Supabase bağlantısı
