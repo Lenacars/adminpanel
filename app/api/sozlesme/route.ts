@@ -55,6 +55,7 @@ export async function POST() {
 
     return NextResponse.json({ url: fileUrl });
   } catch (err: any) {
+    console.error("🔥 HATA:", err); // ← doğru yer burası
     return NextResponse.json(
       { error: "PDF oluşturulamadı", detay: String(err) },
       { status: 500 }
