@@ -4,8 +4,9 @@ import SozlesmePdf from "@/components/SozlesmePdf";
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 import path from "path";
+import React from "react";
 
-// Open Sans fontu yükle
+// Open Sans fontunu kaydet
 const fontBuffer = fs.readFileSync(path.resolve("fonts/OpenSans-Regular.ttf"));
 Font.register({
   family: "Open Sans",
@@ -23,14 +24,15 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = body;
 
+    // ✅ JSX yerine React.createElement kullan
     const pdfBuffer = await pdf(
-      <SozlesmePdf
-        musteriAdi={musteriAdi}
-        aracModel={aracModel}
-        baslangicTarihi={baslangicTarihi}
-        bitisTarihi={bitisTarihi}
-        fiyat={fiyat}
-      />
+      React.createElement(SozlesmePdf, {
+        musteriAdi,
+        aracModel,
+        baslangicTarihi,
+        bitisTarihi,
+        fiyat,
+      })
     ).toBuffer();
 
     const filename = `sozlesme_${Date.now()}.pdf`;
