@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import type { NextApiRequest, NextApiResponse } from "next";
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import os from "os";
@@ -12,35 +12,38 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(req: Request) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Sadece POST isteği desteklenmektedir." });
+  }
+
   try {
-    // ⛔ DÜZENLENDİ BURASI
-    const body = await req.json();
-    const { musteriAdi, adres, vergiDairesi, eposta } = body;
+    const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = req.body;
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
-    const fontPath = path.join(process.cwd(), "public", "fonts", "OpenSans-Regular.ttf");
+    // Font
+    const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
     doc.font(fontPath);
 
+    // PDF akışı
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
+    // Başlık ve boş alanlar
     doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown(1.5);
     doc.fontSize(10);
+    doc.text("Kiracı Unvanı: ...............................................................");
+    doc.text("Kiracı Adresi: ...............................................................");
+    doc.text("Kiracı Vergi Dairesi - Vergi Numarası: ................................");
+    doc.text("Fatura Bildirim e-posta adresi: ...........................................");
+    doc.text("Kiracı Kısa İsmi: 'MÜŞTERİ'").moveDown();
 
-    // Form alanları
-    doc.text(`Kiracı Unvanı: ${musteriAdi || "..............................................................."}`);
-    doc.text(`Kiracı Adresi: ${adres || "..............................................................."}`);
-    doc.text(`Kiracı Vergi Dairesi - Vergi Numarası: ${vergiDairesi || "................................"}`);
-    doc.text(`Fatura Bildirim e-posta adresi: ${eposta || "..........................................."}`);
-    doc.text(`Kiracı Kısa İsmi: 'MÜŞTERİ'`).moveDown();
-
-    // .txt sözleşme metni
+    // Metni public/sozlesme-metni.txt dosyasından oku
     const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
-    const fullText = fs.readFileSync(sozlesmePath, "utf-8");
+    const fullText = fs.readFileSync(sozlesmePath, "utf8");
 
     const satirlar = fullText.split("\n");
     for (let i = 0; i < satirlar.length; i++) {
@@ -61,7 +64,7 @@ export async function POST(req: Request) {
       });
 
     if (uploadError) {
-      return NextResponse.json({ message: "Yükleme hatası", error: uploadError }, { status: 500 });
+      return res.status(500).json({ message: "Yükleme hatası", error: uploadError });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
@@ -69,16 +72,17 @@ export async function POST(req: Request) {
     await supabase.from("sozlesmeler").insert([
       {
         musteri_adi: musteriAdi || "Boş",
-        adres: adres || "Boş",
-        vergi_dairesi: vergiDairesi || "Boş",
-        eposta: eposta || "Boş",
+        arac_model: aracModel || "Boş",
+        baslangic_tarihi: baslangicTarihi || null,
+        bitis_tarihi: bitisTarihi || null,
+        fiyat: fiyat || 0,
         pdf_url: publicUrl,
       },
     ]);
 
-    return NextResponse.json({ message: "Sözleşme oluşturuldu", url: publicUrl }, { status: 200 });
+    return res.status(200).json({ message: "Sözleşme oluşturuldu", url: publicUrl });
   } catch (err: any) {
     console.error("🚨 PDF oluşturma hatası:", err);
-    return NextResponse.json({ message: "Sunucu hatası", error: err?.message }, { status: 500 });
+    return res.status(500).json({ message: "Sunucu hatası", error: err?.message });
   }
 }
