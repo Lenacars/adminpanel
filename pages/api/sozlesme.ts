@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server";
+// pages/api/sozlesme.ts
+
+import { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -11,11 +13,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(req: Request) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("📥 [POST] API isteği alındı");
 
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Sadece POST isteklerine izin verilir" });
+  }
+
   try {
-    const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
+    const { musteriAdi, adres, vergiDairesi, eposta } = req.body;
     console.log("✅ Form verileri:", { musteriAdi, adres, vergiDairesi, eposta });
 
     const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
@@ -67,8 +73,8 @@ export async function POST(req: Request) {
       });
 
     if (uploadError) {
-      console.error("❌ Dosya yükleme hatası:", uploadError);
-      return NextResponse.json({ message: "Yükleme hatası", error: uploadError }, { status: 500 });
+      console.error("❌ Supabase dosya yükleme hatası:", uploadError);
+      return res.status(500).json({ message: "Upload error", error: uploadError });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
@@ -85,12 +91,12 @@ export async function POST(req: Request) {
 
     if (dbError) {
       console.error("❌ Veritabanı hatası:", dbError);
-      return NextResponse.json({ message: "DB hatası", error: dbError }, { status: 500 });
+      return res.status(500).json({ message: "DB error", error: dbError });
     }
 
-    return NextResponse.json({ message: "PDF başarıyla oluşturuldu", url: publicUrl });
+    return res.status(200).json({ message: "PDF oluşturuldu", url: publicUrl });
   } catch (err: any) {
     console.error("🚨 Genel Hata:", err);
-    return NextResponse.json({ message: "Sunucu hatası", error: err?.message }, { status: 500 });
+    return res.status(500).json({ message: "Sunucu hatası", error: err.message });
   }
 }
