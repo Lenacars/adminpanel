@@ -56,10 +56,11 @@ export default function SozlesmePage() {
 
     if (res.ok) {
       toast({
-        title: "🎉 Başarılı!",
-        description: "PDF başarıyla oluşturuldu.",
-        duration: 5000,
-        className: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg bg-white text-black p-4 rounded-md border border-gray-300",
+        title: "✅ PDF Oluşturuldu",
+        description: "Belge başarıyla yüklendi.",
+        duration: 4000,
+        className:
+          "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-300 text-black px-6 py-4 rounded shadow-xl z-[9999]",
       });
 
       // formu sıfırla
@@ -79,7 +80,8 @@ export default function SozlesmePage() {
       toast({
         title: "❌ Hata",
         description: data.message || "Bir hata oluştu.",
-        className: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg bg-red-600 text-white p-4 rounded-md",
+        className:
+          "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-6 py-4 rounded shadow-xl z-[9999]",
       });
     }
   };
