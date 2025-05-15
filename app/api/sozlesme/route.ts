@@ -13,26 +13,35 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
+  console.log("📥 [POST] API isteği alındı");
+
   try {
     const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
+    console.log("✅ Form verileri:", { musteriAdi, adres, vergiDairesi, eposta });
 
-    // 📁 Font yolu (proje kökünde: /fonts/OpenSans-Regular.ttf)
+    // Font dosya yolu
     const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
+    console.log("📁 Font dosya yolu:", fontPath);
 
-    // 📝 PDF ve geçici dosya ayarları
+    if (!fs.existsSync(fontPath)) {
+      throw new Error(`❌ Font dosyası bulunamadı: ${fontPath}`);
+    }
+
+    // PDF geçici dosya ayarları
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
+    console.log("🧾 PDF geçici yolu:", tempPath);
+
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
-    // ✅ FONT REGISTER & SET – PIPE’TAN ÖNCE!
+    // Fontu kaydet ve uygula
     doc.registerFont("OpenSans", fontPath);
     doc.font("OpenSans");
+    console.log("✅ OpenSans fontu yüklendi");
 
-    // 📄 Pipe başlatmadan ÖNCE font tanımlandı
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
-    // 🧾 Müşteri bilgileri
     doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown();
     doc.fontSize(10);
     doc.text(`Kiracı Unvanı: ${musteriAdi || ".........."}`);
@@ -41,21 +50,28 @@ export async function POST(req: Request) {
     doc.text(`Fatura E-posta: ${eposta || ".........."}`);
     doc.moveDown();
 
-    // 📜 Sözleşme metni
     const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
+    console.log("📄 Sözleşme metni yolu:", sozlesmePath);
+
+    if (!fs.existsSync(sozlesmePath)) {
+      throw new Error(`❌ Sözleşme metni bulunamadı: ${sozlesmePath}`);
+    }
+
     const fullText = fs.readFileSync(sozlesmePath, "utf8");
     const lines = fullText.split("\n");
 
-    for (let i = 0; i < lines.length; i++) {
-      if (i !== 0 && i % 45 === 0) doc.addPage();
-      doc.text(lines[i], { width: 500, align: "justify" });
-    }
+    lines.forEach((line, index) => {
+      if (index !== 0 && index % 45 === 0) doc.addPage();
+      doc.text(line, { width: 500, align: "justify" });
+    });
 
     doc.end();
+    console.log("📄 PDF oluşturma tamamlandı");
+
     await new Promise((resolve) => stream.on("finish", resolve));
     const pdfBuffer = fs.readFileSync(tempPath);
+    console.log("📦 PDF dosyası okundu:", tempPath);
 
-    // ☁️ Supabase'e yükle
     const { error } = await supabase.storage
       .from("sozlesmeler")
       .upload(fileName, pdfBuffer, {
@@ -64,12 +80,14 @@ export async function POST(req: Request) {
       });
 
     if (error) {
+      console.error("❌ Supabase dosya yükleme hatası:", error);
       return NextResponse.json({ message: "Dosya yüklenemedi", error }, { status: 500 });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
+    console.log("📤 Supabase'e yüklendi:", publicUrl);
 
-    await supabase.from("sozlesmeler").insert([
+    const { error: dbError } = await supabase.from("sozlesmeler").insert([
       {
         musteri_adi: musteriAdi,
         adres,
@@ -78,6 +96,13 @@ export async function POST(req: Request) {
         pdf_url: publicUrl,
       },
     ]);
+
+    if (dbError) {
+      console.error("❌ Supabase veritabanı hatası:", dbError);
+      return NextResponse.json({ message: "Veritabanı hatası", error: dbError }, { status: 500 });
+    }
+
+    console.log("✅ Supabase veritabanına kayıt başarılı");
 
     return NextResponse.json({ message: "PDF oluşturuldu", url: publicUrl });
   } catch (err: any) {
