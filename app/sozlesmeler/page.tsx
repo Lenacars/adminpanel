@@ -56,13 +56,30 @@ export default function SozlesmePage() {
 
     if (res.ok) {
       toast({
-        title: "✅ PDF Başarıyla Oluşturuldu",
-        description: "Dosya başarıyla yüklendi.",
+        title: "🎉 Başarılı!",
+        description: "PDF başarıyla oluşturuldu.",
+        duration: 5000,
+        className: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg bg-white text-black p-4 rounded-md border border-gray-300",
       });
+
+      // formu sıfırla
+      if (isSozlesme) {
+        setSozlesmeForm({ musteriAdi: "", adres: "", vergiDairesi: "", eposta: "" });
+      } else {
+        setSiparisForm({
+          musteriAdi: "",
+          aracMarka: "",
+          adet: "1",
+          kiraSuresi: "",
+          kmLimiti: "",
+          kiraTutari: "",
+        });
+      }
     } else {
       toast({
         title: "❌ Hata",
         description: data.message || "Bir hata oluştu.",
+        className: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg bg-red-600 text-white p-4 rounded-md",
       });
     }
   };
