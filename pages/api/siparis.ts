@@ -42,32 +42,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
-    // Başlık
+    // Başlık ve dinamik veriler
     doc.fontSize(14).text("SİPARİŞ ONAY FORMU", { align: "center" }).moveDown();
     doc.fontSize(10);
-
-    // Dinamik alanları PDF'e yaz
     doc.text(`Müşteri: ${musteriAdi}`);
     doc.text(`Araç Marka / Model: ${aracMarka}`);
     doc.text(`Adet: ${adet}`);
     doc.text(`Kira Süresi: ${kiraSuresi}`);
     doc.text(`Km Limiti / Ay: ${kmLimiti}`);
-    doc.text(`Kira Tutarı / Ay: ${kiraTutari} + KDV`);
-    doc.moveDown();
+    doc.text(`Kira Tutarı / Ay: ${kiraTutari} + KDV`).moveDown();
 
-    // TXT içeriğini satır satır PDF'e yaz
-    const contentLines = fs.readFileSync(txtPath, "utf-8").split("\n");
-    for (let i = 0; i < contentLines.length; i++) {
+    // Metin dosyasını satır satır PDF'e ekle
+    const lines = fs.readFileSync(txtPath, "utf-8").split("\n");
+    for (let i = 0; i < lines.length; i++) {
       if (i > 0 && i % 45 === 0) doc.addPage();
-      doc.text(contentLines[i], { width: 500, align: "justify" });
+      doc.text(lines[i], { width: 500, align: "justify" });
     }
 
     doc.end();
     await new Promise((resolve) => stream.on("finish", resolve));
 
     const pdfBuffer = fs.readFileSync(tempPath);
+
+    // ✅ DOĞRU BUCKET ADI
     const { error: uploadError } = await supabase.storage
-      .from("siparisler")
+      .from("siparis-onay-pdfs")
       .upload(fileName, pdfBuffer, {
         contentType: "application/pdf",
         upsert: true,
@@ -75,9 +74,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (uploadError) throw uploadError;
 
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/siparisler/${fileName}`;
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/siparis-onay-pdfs/${fileName}`;
 
-    const { error: dbError } = await supabase.from("siparisler").insert([
+    // ✅ DOĞRU TABLO ADI
+    const { error: dbError } = await supabase.from("siparis_onay_formlari").insert([
       {
         musteri_adi: musteriAdi,
         arac_marka: aracMarka,
