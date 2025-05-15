@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
 
 const tabs = [
   { key: "sozlesme", label: "Sözleşme Oluştur" },
@@ -14,6 +13,7 @@ const tabs = [
 export default function SozlesmePage() {
   const [activeTab, setActiveTab] = useState("sozlesme");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [sozlesmeForm, setSozlesmeForm] = useState({
     musteriAdi: "",
@@ -55,13 +55,8 @@ export default function SozlesmePage() {
     setLoading(false);
 
     if (res.ok) {
-      toast({
-        title: "✅ PDF Oluşturuldu",
-        description: "Belge başarıyla yüklendi.",
-        duration: 4000,
-        className:
-          "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-300 text-black px-6 py-4 rounded shadow-xl z-[9999]",
-      });
+      setSuccessMessage("✅ PDF başarıyla oluşturuldu.");
+      setTimeout(() => setSuccessMessage(""), 4000);
 
       // formu sıfırla
       if (isSozlesme) {
@@ -77,17 +72,19 @@ export default function SozlesmePage() {
         });
       }
     } else {
-      toast({
-        title: "❌ Hata",
-        description: data.message || "Bir hata oluştu.",
-        className:
-          "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-6 py-4 rounded shadow-xl z-[9999]",
-      });
+      alert(data.message || "Bir hata oluştu.");
     }
   };
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white shadow rounded space-y-6">
+      {/* Başarı mesajı */}
+      {successMessage && (
+        <div className="bg-green-100 text-green-800 border border-green-300 px-4 py-2 rounded text-sm text-center">
+          {successMessage}
+        </div>
+      )}
+
       {/* Sekmeler */}
       <div className="flex justify-center gap-4">
         {tabs.map((tab) => (
