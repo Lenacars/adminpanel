@@ -16,20 +16,23 @@ export async function POST(req: Request) {
   try {
     const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
 
+    // 📁 Font yolu (proje kökünde: /fonts/OpenSans-Regular.ttf)
+    const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
+
+    // 📝 PDF ve geçici dosya ayarları
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
-    // ✅ 1. FONTU ÖNCE TANIMLA ve UYGULA
-    const fontPath = path.join(process.cwd(), "public", "fonts", "OpenSans-Regular.ttf");
+    // ✅ FONT REGISTER & SET – PIPE’TAN ÖNCE!
     doc.registerFont("OpenSans", fontPath);
-    doc.font("OpenSans"); // Bunu pipe’tan ÖNCE yap
+    doc.font("OpenSans");
 
-    // ✅ 2. DOSYA AKIŞINI BAŞLAT
+    // 📄 Pipe başlatmadan ÖNCE font tanımlandı
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
-    // Başlık ve müşteri bilgileri
+    // 🧾 Müşteri bilgileri
     doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown();
     doc.fontSize(10);
     doc.text(`Kiracı Unvanı: ${musteriAdi || ".........."}`);
@@ -38,7 +41,7 @@ export async function POST(req: Request) {
     doc.text(`Fatura E-posta: ${eposta || ".........."}`);
     doc.moveDown();
 
-    // Sabit sözleşme metni
+    // 📜 Sözleşme metni
     const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
     const fullText = fs.readFileSync(sozlesmePath, "utf8");
     const lines = fullText.split("\n");
@@ -52,7 +55,7 @@ export async function POST(req: Request) {
     await new Promise((resolve) => stream.on("finish", resolve));
     const pdfBuffer = fs.readFileSync(tempPath);
 
-    // Supabase’e yükle
+    // ☁️ Supabase'e yükle
     const { error } = await supabase.storage
       .from("sozlesmeler")
       .upload(fileName, pdfBuffer, {
