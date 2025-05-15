@@ -51,11 +51,24 @@ const menuItems: MenuItem[] = [
     roles: ["superadmin"],
   },
   {
-    label: "Sözleşme Oluştur",
-    href: "/sozlesmeler",
-    icon: "🛒",
-    roles: ["superadmin", "editor", "musteri_temsilcisi"],
-  },
+  label: "Sözleşme İşlemleri",
+  icon: "📁",
+  roles: ["superadmin", "editor", "musteri_temsilcisi"],
+  children: [
+    {
+      label: "Sözleşme Oluştur",
+      href: "/sozlesmeler",
+    },
+    {
+      label: "Oluşturulmuş Sözleşmeler",
+      href: "/sozlesmeler/list",
+    },
+    {
+      label: "Oluşturulmuş Sipariş Formları",
+      href: "/siparisler/list",
+    },
+  ],
+},
   {
     label: "Çalışan Hareketleri",
     href: "/calisan-aktiviteleri",
