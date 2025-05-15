@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import PDFDocument from "pdfkit";
 import fs from "fs";
-import os from "os";
 import path from "path";
+import os from "os";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from "@supabase/supabase-js";
+import puppeteer from "puppeteer-core";
 
 // Supabase istemcisi
 const supabase = createClient(
@@ -12,53 +12,58 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Puppeteer executable path (local Chromium)
+const chromiumExecPath = process.platform === "win32"
+  ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+  : "/usr/bin/google-chrome"; // Linux/macOS için ayarla
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Sadece POST isteği desteklenmektedir." });
+    return res.status(405).json({ message: "Sadece POST isteklerine izin verilir." });
   }
 
   try {
-    const { musteriAdi, aracModel, baslangicTarihi, bitisTarihi, fiyat } = req.body;
+    const { musteriAdi, adres, vergiDairesi, eposta } = req.body;
+
+    // HTML şablonunu oku
+    const htmlTemplatePath = path.join(process.cwd(), "public", "sozlesme-template.html");
+    let html = fs.readFileSync(htmlTemplatePath, "utf8");
+
+    // Şablondaki alanları değiştir
+    html = html
+      .replace(/{{musteriAdi}}/g, musteriAdi || "")
+      .replace(/{{adres}}/g, adres || "")
+      .replace(/{{vergiDairesi}}/g, vergiDairesi || "")
+      .replace(/{{eposta}}/g, eposta || "");
+
+    // Geçici HTML dosyası
+    const tempHtmlPath = path.join(os.tmpdir(), `sozlesme-${uuidv4()}.html`);
+    fs.writeFileSync(tempHtmlPath, html, "utf8");
+
+    // Puppeteer ile PDF oluştur
+    const browser = await puppeteer.launch({
+      headless: "new",
+      executablePath: chromiumExecPath,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.goto(`file://${tempHtmlPath}`, { waitUntil: "networkidle0" });
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      margin: { top: "20mm", bottom: "20mm", left: "15mm", right: "15mm" },
+      printBackground: true,
+    });
+
+    await browser.close();
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
-    const tempPath = path.join(os.tmpdir(), fileName);
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
 
-    // Font
-    const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
-    doc.font(fontPath);
-
-    // PDF akışı
-    const stream = fs.createWriteStream(tempPath);
-    doc.pipe(stream);
-
-    // Başlık ve boş alanlar
-    doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown(1.5);
-    doc.fontSize(10);
-    doc.text("Kiracı Unvanı: ...............................................................");
-    doc.text("Kiracı Adresi: ...............................................................");
-    doc.text("Kiracı Vergi Dairesi - Vergi Numarası: ................................");
-    doc.text("Fatura Bildirim e-posta adresi: ...........................................");
-    doc.text("Kiracı Kısa İsmi: 'MÜŞTERİ'").moveDown();
-
-    // Metni public/sozlesme-metni.txt dosyasından oku
-    const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
-    const fullText = fs.readFileSync(sozlesmePath, "utf8");
-
-    const satirlar = fullText.split("\n");
-    for (let i = 0; i < satirlar.length; i++) {
-      if (i !== 0 && i % 45 === 0) doc.addPage();
-      doc.text(satirlar[i], { width: 500, align: "justify" });
-    }
-
-    doc.end();
-
-    await new Promise((resolve) => stream.on("finish", resolve));
-    const fileBuffer = fs.readFileSync(tempPath);
-
+    // Supabase'e yükle
     const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
-      .upload(fileName, fileBuffer, {
+      .upload(fileName, pdfBuffer, {
         contentType: "application/pdf",
         upsert: true,
       });
@@ -71,18 +76,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await supabase.from("sozlesmeler").insert([
       {
-        musteri_adi: musteriAdi || "Boş",
-        arac_model: aracModel || "Boş",
-        baslangic_tarihi: baslangicTarihi || null,
-        bitis_tarihi: bitisTarihi || null,
-        fiyat: fiyat || 0,
+        musteri_adi: musteriAdi,
+        adres,
+        vergi_dairesi: vergiDairesi,
+        eposta,
         pdf_url: publicUrl,
       },
     ]);
 
-    return res.status(200).json({ message: "Sözleşme oluşturuldu", url: publicUrl });
+    return res.status(200).json({ message: "Sözleşme başarıyla oluşturuldu", url: publicUrl });
   } catch (err: any) {
-    console.error("🚨 PDF oluşturma hatası:", err);
+    console.error("🚨 HATA:", err);
     return res.status(500).json({ message: "Sunucu hatası", error: err?.message });
   }
 }
