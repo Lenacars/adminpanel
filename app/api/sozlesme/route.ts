@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
     console.log("✅ Form verileri:", { musteriAdi, adres, vergiDairesi, eposta });
 
-    // Font dosya yolu
+    // ✅ Font dosya yolu (KÖK dizin: /fonts)
     const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
     console.log("📁 Font dosya yolu:", fontPath);
 
@@ -27,21 +27,21 @@ export async function POST(req: Request) {
       throw new Error(`❌ Font dosyası bulunamadı: ${fontPath}`);
     }
 
-    // PDF geçici dosya ayarları
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
-    console.log("🧾 PDF geçici yolu:", tempPath);
+    console.log("📄 Geçici PDF yolu:", tempPath);
 
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
-    // Fontu kaydet ve uygula
     doc.registerFont("OpenSans", fontPath);
     doc.font("OpenSans");
-    console.log("✅ OpenSans fontu yüklendi");
+    console.log("🔤 OpenSans fontu yüklendi");
 
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
+    // 📌 Başlık ve müşteri bilgileri
+    doc.font("OpenSans");
     doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown();
     doc.fontSize(10);
     doc.text(`Kiracı Unvanı: ${musteriAdi || ".........."}`);
@@ -50,9 +50,8 @@ export async function POST(req: Request) {
     doc.text(`Fatura E-posta: ${eposta || ".........."}`);
     doc.moveDown();
 
+    // 📜 Sözleşme metni
     const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
-    console.log("📄 Sözleşme metni yolu:", sozlesmePath);
-
     if (!fs.existsSync(sozlesmePath)) {
       throw new Error(`❌ Sözleşme metni bulunamadı: ${sozlesmePath}`);
     }
@@ -60,32 +59,35 @@ export async function POST(req: Request) {
     const fullText = fs.readFileSync(sozlesmePath, "utf8");
     const lines = fullText.split("\n");
 
-    lines.forEach((line, index) => {
-      if (index !== 0 && index % 45 === 0) doc.addPage();
+    lines.forEach((line, i) => {
+      if (i !== 0 && i % 45 === 0) {
+        doc.addPage();
+        doc.font("OpenSans"); // 🧠 addPage sonrası fontu yeniden uygula
+      }
       doc.text(line, { width: 500, align: "justify" });
     });
 
     doc.end();
-    console.log("📄 PDF oluşturma tamamlandı");
+    console.log("📄 PDF yazımı tamamlandı");
 
     await new Promise((resolve) => stream.on("finish", resolve));
     const pdfBuffer = fs.readFileSync(tempPath);
-    console.log("📦 PDF dosyası okundu:", tempPath);
+    console.log("📦 PDF okundu:", tempPath);
 
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
       .upload(fileName, pdfBuffer, {
         contentType: "application/pdf",
         upsert: true,
       });
 
-    if (error) {
-      console.error("❌ Supabase dosya yükleme hatası:", error);
-      return NextResponse.json({ message: "Dosya yüklenemedi", error }, { status: 500 });
+    if (uploadError) {
+      console.error("❌ Supabase upload hatası:", uploadError);
+      return NextResponse.json({ message: "Dosya yüklenemedi", error: uploadError }, { status: 500 });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
-    console.log("📤 Supabase'e yüklendi:", publicUrl);
+    console.log("☁️ Dosya yüklendi:", publicUrl);
 
     const { error: dbError } = await supabase.from("sozlesmeler").insert([
       {
@@ -98,13 +100,13 @@ export async function POST(req: Request) {
     ]);
 
     if (dbError) {
-      console.error("❌ Supabase veritabanı hatası:", dbError);
+      console.error("❌ Supabase DB hatası:", dbError);
       return NextResponse.json({ message: "Veritabanı hatası", error: dbError }, { status: 500 });
     }
 
-    console.log("✅ Supabase veritabanına kayıt başarılı");
-
+    console.log("✅ Veritabanı kaydı başarılı");
     return NextResponse.json({ message: "PDF oluşturuldu", url: publicUrl });
+
   } catch (err: any) {
     console.error("🚨 HATA:", err);
     return NextResponse.json({ message: "Sunucu hatası", error: err?.message }, { status: 500 });
