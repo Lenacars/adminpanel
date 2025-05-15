@@ -21,6 +21,11 @@ export async function POST(req: Request) {
     const tempPath = path.join(os.tmpdir(), fileName);
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
+    // 🎯 OpenSans fontunu tanımla (Türkçe karakter desteği için)
+    const fontPath = path.join(process.cwd(), "public", "fonts", "OpenSans-Regular.ttf");
+    doc.registerFont("OpenSans", fontPath);
+    doc.font("OpenSans");
+
     // Yazılacak dosya akışı
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
