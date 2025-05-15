@@ -1,48 +1,41 @@
-// app/api/sozlesme/route.ts
-
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import os from "os";
 import { v4 as uuidv4 } from "uuid";
-import puppeteer from "puppeteer-core";
 import { createClient } from "@supabase/supabase-js";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium-min";
 
-// Supabase bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Chrome yolunu belirle (lokal için)
-const chromiumExecPath = process.platform === "win32"
-  ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-  : "/usr/bin/google-chrome"; // Linux/macOS
-
 export async function POST(req: Request) {
   try {
     const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
 
-    // HTML şablon yolu (DOĞRU KLASÖR)
+    // HTML şablon yolu
     const templatePath = path.join(process.cwd(), "app", "templates", "sozlesme-template.html");
-
-    // HTML oku ve değişkenleri değiştir
     let html = fs.readFileSync(templatePath, "utf8");
-    html = html
-      .replace(/{{musteriAdi}}/g, musteriAdi)
-      .replace(/{{adres}}/g, adres)
-      .replace(/{{vergiDairesi}}/g, vergiDairesi)
-      .replace(/{{eposta}}/g, eposta);
 
-    // Geçici HTML oluştur
+    // Yer tutucuları değiştir
+    html = html
+      .replace(/{{musteriAdi}}/g, musteriAdi || "")
+      .replace(/{{adres}}/g, adres || "")
+      .replace(/{{vergiDairesi}}/g, vergiDairesi || "")
+      .replace(/{{eposta}}/g, eposta || "");
+
+    // Geçici HTML dosyası
     const tempHtmlPath = path.join(os.tmpdir(), `sozlesme-${uuidv4()}.html`);
     fs.writeFileSync(tempHtmlPath, html, "utf8");
 
-    // Puppeteer başlat
+    // Puppeteer başlat (Vercel uyumlu)
     const browser = await puppeteer.launch({
-      headless: "new",
-      executablePath: chromiumExecPath,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
@@ -58,7 +51,7 @@ export async function POST(req: Request) {
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
 
-    // PDF'yi Supabase'e yükle
+    // Supabase'e yükle
     const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
       .upload(fileName, pdfBuffer, {
