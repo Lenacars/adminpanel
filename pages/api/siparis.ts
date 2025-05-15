@@ -19,9 +19,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const {
       musteriAdi,
-      adres,
-      vergiDairesi,
-      eposta,
       aracMarka,
       adet,
       kiraSuresi,
@@ -31,6 +28,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
     if (!fs.existsSync(fontPath)) throw new Error("❌ Font dosyası bulunamadı.");
+
+    const txtPath = path.join(process.cwd(), "public", "siparis-onay-formu.txt");
+    if (!fs.existsSync(txtPath)) throw new Error("❌ siparis-onay-formu.txt dosyası bulunamadı.");
 
     const fileName = `siparis-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
@@ -46,39 +46,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     doc.fontSize(14).text("SİPARİŞ ONAY FORMU", { align: "center" }).moveDown();
     doc.fontSize(10);
 
-    // Taraflar
-    doc.text(`1. Taraflar`);
-    doc.text(`LENACARS: Eyüp Sultan Mah. Yadigâr Sk. No:30-38A İç Kapı No:78 Sancaktepe/İSTANBUL`);
-    doc.text(`MÜŞTERİ: ${musteriAdi} - ${adres}`).moveDown();
-
-    // Konu
-    doc.text(`2. Konu`);
-    doc.text(`Araç kiralamaya ilişkin detaylar aşağıda sunulmuştur.`).moveDown();
-
-    // Araç Bilgisi Tablosu
-    doc.text(`3. Araç Bilgileri`);
-    doc.text(`Araç Marka/Model: ${aracMarka}`);
+    // Dinamik alanları PDF'e yaz
+    doc.text(`Müşteri: ${musteriAdi}`);
+    doc.text(`Araç Marka / Model: ${aracMarka}`);
     doc.text(`Adet: ${adet}`);
     doc.text(`Kira Süresi: ${kiraSuresi}`);
-    doc.text(`Km Limiti/Ay: ${kmLimiti}`);
-    doc.text(`Kira Tutarı/Ay: ${kiraTutari} + KDV`).moveDown();
+    doc.text(`Km Limiti / Ay: ${kmLimiti}`);
+    doc.text(`Kira Tutarı / Ay: ${kiraTutari} + KDV`);
+    doc.moveDown();
 
-    // Genel Hükümlerden örnekler
-    doc.text(`3.1 Aşım ücreti: Fazla her km için 6 TL + KDV.`);
-    doc.text(`3.2 Kasko muafiyet oranı: Kasko değerinin %2’si.`);
-    doc.text(`3.3 Teslim noktası: İstanbul Sancaktepe OTOSTAT.`).moveDown();
-
-    // Ödeme ve Teminat
-    doc.text(`4. Ödeme Şartları`);
-    doc.text(`Ödemeler fatura tarihinden itibaren 5 gün içinde yapılacaktır.`);
-    doc.text(`Kredi kartı tanımlanarak otomatik çekim yapılabilir.`).moveDown();
-
-    doc.text(`5. Depozito ve Teminat`);
-    doc.text(`20.000 TL depozito alınacak, borç yoksa iade edilecektir.`).moveDown();
-
-    // İmza bölümü
-    doc.moveDown().text(`Tarih: ${new Date().toLocaleDateString("tr-TR")}`);
-    doc.moveDown().text(`LENA MAMA YAYINCILIK TİC. A.Ş.`, { continued: true }).text(`                             MÜŞTERİ: ${musteriAdi}`);
+    // TXT içeriğini satır satır PDF'e yaz
+    const contentLines = fs.readFileSync(txtPath, "utf-8").split("\n");
+    for (let i = 0; i < contentLines.length; i++) {
+      if (i > 0 && i % 45 === 0) doc.addPage();
+      doc.text(contentLines[i], { width: 500, align: "justify" });
+    }
 
     doc.end();
     await new Promise((resolve) => stream.on("finish", resolve));
@@ -94,14 +76,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (uploadError) throw uploadError;
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/siparisler/${fileName}`;
+
     const { error: dbError } = await supabase.from("siparisler").insert([
       {
         musteri_adi: musteriAdi,
-        adres,
-        vergi_dairesi: vergiDairesi,
-        eposta,
         arac_marka: aracMarka,
+        adet,
         kira_suresi: kiraSuresi,
+        km_limiti: kmLimiti,
         kira_tutari: kiraTutari,
         pdf_url: publicUrl,
       },
@@ -109,7 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (dbError) throw dbError;
 
-    return res.status(200).json({ message: "Sipariş PDF oluşturuldu", url: publicUrl });
+    return res.status(200).json({ message: "PDF başarıyla oluşturuldu", url: publicUrl });
   } catch (err: any) {
     console.error("🚨 Hata:", err);
     return res.status(500).json({ message: "Sunucu hatası", error: err.message });
