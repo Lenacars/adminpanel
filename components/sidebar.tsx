@@ -50,23 +50,14 @@ const menuItems: MenuItem[] = [
     icon: "🧑‍💼",
     roles: ["superadmin"],
   },
-  {
+ {
   label: "Sözleşme İşlemleri",
   icon: "📁",
   roles: ["superadmin", "editor", "musteri_temsilcisi"],
   children: [
-    {
-      label: "Sözleşme Oluştur",
-      href: "/sozlesmeler",
-    },
-    {
-      label: "Oluşturulmuş Sözleşmeler",
-      href: "/sozlesmeler/list",
-    },
-    {
-      label: "Oluşturulmuş Sipariş Formları",
-      href: "/siparisler/list",
-    },
+    { label: "Sözleşme / Sipariş Oluştur", href: "/sozlesmeler" },
+    { label: "Oluşturulmuş Sözleşmeler", href: "/sozlesmeler/list-sozlesmeler" },
+    { label: "Oluşturulmuş Sipariş Formları", href: "/sozlesmeler/list-siparisler" },
   ],
 },
   {
