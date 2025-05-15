@@ -11,6 +11,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getToday(): string {
+  const date = new Date();
+  return date.toLocaleDateString("tr-TR").split(".").reverse().join("-"); // YYYY-MM-DD
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Sadece POST isteklerine izin verilir" });
@@ -32,7 +37,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const txtPath = path.join(process.cwd(), "public", "siparis-onay-formu.txt");
     if (!fs.existsSync(txtPath)) throw new Error("❌ siparis-onay-formu.txt dosyası bulunamadı.");
 
-    const fileName = `siparis-${uuidv4()}.pdf`;
+    // Dinamik dosya adı
+    const sanitizedName = musteriAdi.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s]/g, "").replace(/\s+/g, "-");
+    const today = getToday();
+    const fileName = `LenaCars-Siparis-Onay-Formu-${sanitizedName}-${today}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
 
     const doc = new PDFDocument({ size: "A4", margin: 50 });
@@ -42,17 +50,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
-    // Başlık ve dinamik veriler
-    doc.fontSize(14).text("SİPARİŞ ONAY FORMU", { align: "center" }).moveDown();
+    // Başlık
+    doc.fontSize(14).text(`LenaCars Sipariş Onay Formu - ${musteriAdi} - ${today}`, { align: "center" }).moveDown();
     doc.fontSize(10);
-    doc.text(`Müşteri: ${musteriAdi}`);
     doc.text(`Araç Marka / Model: ${aracMarka}`);
     doc.text(`Adet: ${adet}`);
     doc.text(`Kira Süresi: ${kiraSuresi}`);
     doc.text(`Km Limiti / Ay: ${kmLimiti}`);
     doc.text(`Kira Tutarı / Ay: ${kiraTutari} + KDV`).moveDown();
 
-    // Metin dosyasını satır satır PDF'e ekle
+    // Şablon metni ekle
     const lines = fs.readFileSync(txtPath, "utf-8").split("\n");
     for (let i = 0; i < lines.length; i++) {
       if (i > 0 && i % 45 === 0) doc.addPage();
@@ -64,7 +71,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const pdfBuffer = fs.readFileSync(tempPath);
 
-    // ✅ DOĞRU BUCKET ADI
     const { error: uploadError } = await supabase.storage
       .from("siparis-onay-pdfs")
       .upload(fileName, pdfBuffer, {
@@ -76,7 +82,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/siparis-onay-pdfs/${fileName}`;
 
-    // ✅ DOĞRU TABLO ADI
     const { error: dbError } = await supabase.from("siparis_onay_formlari").insert([
       {
         musteri_adi: musteriAdi,
