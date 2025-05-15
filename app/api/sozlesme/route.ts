@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium-min";
 
+// Supabase istemcisi
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -16,12 +17,22 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
+    console.log("🟡 POST isteği alındı");
+
     const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
+    console.log("✅ Form verileri alındı:", { musteriAdi, adres, vergiDairesi, eposta });
 
-    // Şablon yolu
     const templatePath = path.join(process.cwd(), "app", "templates", "sozlesme-template.html");
-    let html = fs.readFileSync(templatePath, "utf8");
+    console.log("📄 Şablon dosyası yolu:", templatePath);
 
+    const htmlExists = fs.existsSync(templatePath);
+    console.log("📁 Şablon dosyası mevcut mu?:", htmlExists);
+
+    if (!htmlExists) {
+      throw new Error("❌ sozlesme-template.html dosyası bulunamadı.");
+    }
+
+    let html = fs.readFileSync(templatePath, "utf8");
     html = html
       .replace(/{{musteriAdi}}/g, musteriAdi)
       .replace(/{{adres}}/g, adres)
@@ -30,23 +41,31 @@ export async function POST(req: Request) {
 
     const tempHtmlPath = path.join(os.tmpdir(), `sozlesme-${uuidv4()}.html`);
     fs.writeFileSync(tempHtmlPath, html, "utf8");
+    console.log("✅ Geçici HTML dosyası oluşturuldu:", tempHtmlPath);
+
+    const executablePath = await chromium.executablePath();
+    console.log("🧠 Chromium executable path:", executablePath);
 
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath,
       headless: chromium.headless,
     });
+    console.log("✅ Puppeteer başlatıldı");
 
     const page = await browser.newPage();
     await page.goto(`file://${tempHtmlPath}`, { waitUntil: "networkidle0" });
+    console.log("🧾 Sayfa HTML yüklendi");
 
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
     });
+    console.log("📄 PDF oluşturuldu");
 
     await browser.close();
+    console.log("🔒 Browser kapatıldı");
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
 
@@ -58,10 +77,12 @@ export async function POST(req: Request) {
       });
 
     if (uploadError) {
+      console.log("❌ Supabase dosya yükleme hatası:", uploadError);
       return NextResponse.json({ message: "Yükleme hatası", error: uploadError }, { status: 500 });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
+    console.log("📤 PDF yüklendi. URL:", publicUrl);
 
     await supabase.from("sozlesmeler").insert([
       {
@@ -72,6 +93,7 @@ export async function POST(req: Request) {
         pdf_url: publicUrl,
       },
     ]);
+    console.log("📥 Supabase veritabanına kayıt tamamlandı");
 
     return NextResponse.json({ message: "Sözleşme oluşturuldu", url: publicUrl });
   } catch (err: any) {
