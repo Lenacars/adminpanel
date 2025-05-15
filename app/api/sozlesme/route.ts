@@ -8,33 +8,37 @@ import { v4 as uuidv4 } from "uuid";
 import puppeteer from "puppeteer-core";
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase
+// Supabase bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Puppeteer Chrome path (yerel)
+// Chrome yolunu belirle (lokal için)
 const chromiumExecPath = process.platform === "win32"
   ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-  : "/usr/bin/google-chrome";
+  : "/usr/bin/google-chrome"; // Linux/macOS
 
 export async function POST(req: Request) {
   try {
     const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
 
-    const templatePath = path.join(process.cwd(), "public", "sozlesme-template.html");
-    let html = fs.readFileSync(templatePath, "utf8");
+    // HTML şablon yolu (DOĞRU KLASÖR)
+    const templatePath = path.join(process.cwd(), "app", "templates", "sozlesme-template.html");
 
+    // HTML oku ve değişkenleri değiştir
+    let html = fs.readFileSync(templatePath, "utf8");
     html = html
       .replace(/{{musteriAdi}}/g, musteriAdi)
       .replace(/{{adres}}/g, adres)
       .replace(/{{vergiDairesi}}/g, vergiDairesi)
       .replace(/{{eposta}}/g, eposta);
 
+    // Geçici HTML oluştur
     const tempHtmlPath = path.join(os.tmpdir(), `sozlesme-${uuidv4()}.html`);
     fs.writeFileSync(tempHtmlPath, html, "utf8");
 
+    // Puppeteer başlat
     const browser = await puppeteer.launch({
       headless: "new",
       executablePath: chromiumExecPath,
@@ -54,19 +58,21 @@ export async function POST(req: Request) {
 
     const fileName = `sozlesme-${uuidv4()}.pdf`;
 
-    const { error } = await supabase.storage
+    // PDF'yi Supabase'e yükle
+    const { error: uploadError } = await supabase.storage
       .from("sozlesmeler")
       .upload(fileName, pdfBuffer, {
         contentType: "application/pdf",
         upsert: true,
       });
 
-    if (error) {
-      return NextResponse.json({ message: "Yükleme hatası", error }, { status: 500 });
+    if (uploadError) {
+      return NextResponse.json({ message: "Yükleme hatası", error: uploadError }, { status: 500 });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
 
+    // Veritabanına kaydet
     await supabase.from("sozlesmeler").insert([
       {
         musteri_adi: musteriAdi,
@@ -80,6 +86,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Sözleşme oluşturuldu", url: publicUrl });
   } catch (err: any) {
     console.error("🚨 PDF HATASI:", err);
-    return NextResponse.json({ message: "Sunucu hatası", error: err.message }, { status: 500 });
+    return NextResponse.json({ message: "Sunucu hatası", error: err?.message }, { status: 500 });
   }
 }
