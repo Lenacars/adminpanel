@@ -51,10 +51,10 @@ const menuItems: MenuItem[] = [
     roles: ["superadmin"],
   },
   {
-    label: "Siparişler",
-    href: "/siparisler",
+    label: "Sözleşme Oluştur",
+    href: "/sozlesmeler",
     icon: "🛒",
-    roles: ["superadmin", "editor"],
+    roles: ["superadmin", "editor", "musteri_temsilcisi"],
   },
   {
     label: "Çalışan Hareketleri",
