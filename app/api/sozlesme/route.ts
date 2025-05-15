@@ -15,18 +15,18 @@ const supabase = createClient(
 export async function POST(req: Request) {
   try {
     const { musteriAdi, adres, vergiDairesi, eposta } = await req.json();
+    console.log("✅ Form verileri:", { musteriAdi, adres, vergiDairesi, eposta });
 
-    // PDF oluşturulacak geçici dosya
+    // PDF dosyası bilgileri
     const fileName = `sozlesme-${uuidv4()}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
-    // 🎯 OpenSans fontunu tanımla (Türkçe karakter desteği için)
+    // ✅ OpenSans fontunu kaydet ve kullan
     const fontPath = path.join(process.cwd(), "public", "fonts", "OpenSans-Regular.ttf");
     doc.registerFont("OpenSans", fontPath);
     doc.font("OpenSans");
 
-    // Yazılacak dosya akışı
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     doc.text(`Fatura E-posta: ${eposta || ".........."}`);
     doc.moveDown();
 
-    // Sabit sözleşme metni buradan okunur
+    // 📄 Sabit sözleşme metnini oku
     const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
     const fullText = fs.readFileSync(sozlesmePath, "utf8");
     const lines = fullText.split("\n");
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     await new Promise((resolve) => stream.on("finish", resolve));
     const pdfBuffer = fs.readFileSync(tempPath);
 
-    // Supabase’e yükle
+    // 🔼 Supabase Storage'a yükle
     const { error } = await supabase.storage
       .from("sozlesmeler")
       .upload(fileName, pdfBuffer, {
@@ -62,10 +62,12 @@ export async function POST(req: Request) {
       });
 
     if (error) {
+      console.error("❌ Supabase yükleme hatası:", error);
       return NextResponse.json({ message: "Dosya yüklenemedi", error }, { status: 500 });
     }
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sozlesmeler/${fileName}`;
+    console.log("📤 PDF yüklendi:", publicUrl);
 
     // Veritabanına kaydet
     await supabase.from("sozlesmeler").insert([
