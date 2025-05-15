@@ -6,22 +6,49 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
-export default function SozlesmeFormPage() {
+const tabs = [
+  { key: "sozlesme", label: "Sözleşme Oluştur" },
+  { key: "siparis", label: "Sipariş Onay Formu" },
+];
+
+export default function SozlesmePage() {
+  const [activeTab, setActiveTab] = useState("sozlesme");
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
+
+  const [sozlesmeForm, setSozlesmeForm] = useState({
     musteriAdi: "",
     adres: "",
     vergiDairesi: "",
     eposta: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const [siparisForm, setSiparisForm] = useState({
+    musteriAdi: "",
+    adres: "",
+    vergiDairesi: "",
+    eposta: "",
+    aracMarka: "",
+    adet: "1",
+    kiraSuresi: "",
+    kmLimiti: "",
+    kiraTutari: "",
+  });
+
+  const handleSozlesmeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSozlesmeForm({ ...sozlesmeForm, [e.target.name]: e.target.value });
+  };
+
+  const handleSiparisChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSiparisForm({ ...siparisForm, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async () => {
     setLoading(true);
-    const res = await fetch("/api/sozlesme", {
+    const isSozlesme = activeTab === "sozlesme";
+    const endpoint = isSozlesme ? "/api/sozlesme" : "/api/siparis";
+    const form = isSozlesme ? sozlesmeForm : siparisForm;
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -32,8 +59,8 @@ export default function SozlesmeFormPage() {
 
     if (res.ok) {
       toast({
-        title: "✅ Sözleşme Oluşturuldu",
-        description: "PDF başarıyla oluşturuldu.",
+        title: "✅ PDF Başarıyla Oluşturuldu",
+        description: "Dosya başarıyla yüklendi.",
       });
     } else {
       toast({
@@ -44,32 +71,72 @@ export default function SozlesmeFormPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-6 bg-white shadow rounded space-y-4">
-      <h2 className="text-lg font-semibold text-center">Sözleşme Bilgileri</h2>
-
-      <div>
-        <Label>Kiracı Unvanı</Label>
-        <Input name="musteriAdi" value={form.musteriAdi} onChange={handleChange} />
+    <div className="max-w-xl mx-auto p-6 bg-white shadow rounded space-y-6">
+      {/* Sekmeler */}
+      <div className="flex justify-center gap-4">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 rounded font-medium ${
+              activeTab === tab.key ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <div>
-        <Label>Kiracı Adresi</Label>
-        <Input name="adres" value={form.adres} onChange={handleChange} />
-      </div>
+      {/* Form İçeriği */}
+      {activeTab === "sozlesme" && (
+        <>
+          <h2 className="text-lg font-semibold text-center">Sözleşme Bilgileri</h2>
+          <FormInput label="Kiracı Unvanı" name="musteriAdi" value={sozlesmeForm.musteriAdi} onChange={handleSozlesmeChange} />
+          <FormInput label="Kiracı Adresi" name="adres" value={sozlesmeForm.adres} onChange={handleSozlesmeChange} />
+          <FormInput label="Vergi Dairesi - Vergi Numarası" name="vergiDairesi" value={sozlesmeForm.vergiDairesi} onChange={handleSozlesmeChange} />
+          <FormInput label="Fatura E-posta Adresi" name="eposta" value={sozlesmeForm.eposta} onChange={handleSozlesmeChange} />
+        </>
+      )}
 
-      <div>
-        <Label>Vergi Dairesi - Vergi Numarası</Label>
-        <Input name="vergiDairesi" value={form.vergiDairesi} onChange={handleChange} />
-      </div>
+      {activeTab === "siparis" && (
+        <>
+          <h2 className="text-lg font-semibold text-center">Sipariş Onay Formu</h2>
+          <FormInput label="Kiracı Unvanı" name="musteriAdi" value={siparisForm.musteriAdi} onChange={handleSiparisChange} />
+          <FormInput label="Kiracı Adresi" name="adres" value={siparisForm.adres} onChange={handleSiparisChange} />
+          <FormInput label="Vergi Dairesi - Vergi No" name="vergiDairesi" value={siparisForm.vergiDairesi} onChange={handleSiparisChange} />
+          <FormInput label="Fatura E-posta Adresi" name="eposta" value={siparisForm.eposta} onChange={handleSiparisChange} />
+          <FormInput label="Araç Marka / Model" name="aracMarka" value={siparisForm.aracMarka} onChange={handleSiparisChange} />
+          <FormInput label="Adet" name="adet" type="number" value={siparisForm.adet} onChange={handleSiparisChange} />
+          <FormInput label="Kira Süresi" name="kiraSuresi" value={siparisForm.kiraSuresi} onChange={handleSiparisChange} />
+          <FormInput label="Kilometre Limiti / Ay" name="kmLimiti" value={siparisForm.kmLimiti} onChange={handleSiparisChange} />
+          <FormInput label="Kira Tutarı / Ay" name="kiraTutari" value={siparisForm.kiraTutari} onChange={handleSiparisChange} />
+        </>
+      )}
 
-      <div>
-        <Label>Fatura E-posta Adresi</Label>
-        <Input name="eposta" value={form.eposta} onChange={handleChange} />
-      </div>
-
-      <Button className="w-full mt-4" onClick={handleSubmit} disabled={loading}>
-        {loading ? "Oluşturuluyor..." : "Sözleşme PDF Oluştur"}
+      <Button className="w-full" onClick={handleSubmit} disabled={loading}>
+        {loading ? "Oluşturuluyor..." : "PDF Oluştur"}
       </Button>
+    </div>
+  );
+}
+
+function FormInput({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={name}>{label}</Label>
+      <Input id={name} name={name} value={value} onChange={onChange} type={type} />
     </div>
   );
 }
