@@ -24,9 +24,6 @@ export default function SozlesmePage() {
 
   const [siparisForm, setSiparisForm] = useState({
     musteriAdi: "",
-    adres: "",
-    vergiDairesi: "",
-    eposta: "",
     aracMarka: "",
     adet: "1",
     kiraSuresi: "",
@@ -87,13 +84,13 @@ export default function SozlesmePage() {
         ))}
       </div>
 
-      {/* Form İçeriği */}
+      {/* Formlar */}
       {activeTab === "sozlesme" && (
         <>
           <h2 className="text-lg font-semibold text-center">Sözleşme Bilgileri</h2>
           <FormInput label="Kiracı Unvanı" name="musteriAdi" value={sozlesmeForm.musteriAdi} onChange={handleSozlesmeChange} />
           <FormInput label="Kiracı Adresi" name="adres" value={sozlesmeForm.adres} onChange={handleSozlesmeChange} />
-          <FormInput label="Vergi Dairesi - Vergi Numarası" name="vergiDairesi" value={sozlesmeForm.vergiDairesi} onChange={handleSozlesmeChange} />
+          <FormInput label="Vergi Dairesi - Vergi No" name="vergiDairesi" value={sozlesmeForm.vergiDairesi} onChange={handleSozlesmeChange} />
           <FormInput label="Fatura E-posta Adresi" name="eposta" value={sozlesmeForm.eposta} onChange={handleSozlesmeChange} />
         </>
       )}
@@ -102,9 +99,6 @@ export default function SozlesmePage() {
         <>
           <h2 className="text-lg font-semibold text-center">Sipariş Onay Formu</h2>
           <FormInput label="Kiracı Unvanı" name="musteriAdi" value={siparisForm.musteriAdi} onChange={handleSiparisChange} />
-          <FormInput label="Kiracı Adresi" name="adres" value={siparisForm.adres} onChange={handleSiparisChange} />
-          <FormInput label="Vergi Dairesi - Vergi No" name="vergiDairesi" value={siparisForm.vergiDairesi} onChange={handleSiparisChange} />
-          <FormInput label="Fatura E-posta Adresi" name="eposta" value={siparisForm.eposta} onChange={handleSiparisChange} />
           <FormInput label="Araç Marka / Model" name="aracMarka" value={siparisForm.aracMarka} onChange={handleSiparisChange} />
           <FormInput label="Adet" name="adet" type="number" value={siparisForm.adet} onChange={handleSiparisChange} />
           <FormInput label="Kira Süresi" name="kiraSuresi" value={siparisForm.kiraSuresi} onChange={handleSiparisChange} />
