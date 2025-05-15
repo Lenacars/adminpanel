@@ -9,10 +9,10 @@ import { toast } from "@/hooks/use-toast";
 export default function SozlesmeFormPage() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    unvan: "",
+    musteriAdi: "",
     adres: "",
-    vergiBilgisi: "",
-    email: "",
+    vergiDairesi: "",
+    eposta: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,7 +49,7 @@ export default function SozlesmeFormPage() {
 
       <div>
         <Label>Kiracı Unvanı</Label>
-        <Input name="unvan" value={form.unvan} onChange={handleChange} />
+        <Input name="musteriAdi" value={form.musteriAdi} onChange={handleChange} />
       </div>
 
       <div>
@@ -59,12 +59,12 @@ export default function SozlesmeFormPage() {
 
       <div>
         <Label>Vergi Dairesi - Vergi Numarası</Label>
-        <Input name="vergiBilgisi" value={form.vergiBilgisi} onChange={handleChange} />
+        <Input name="vergiDairesi" value={form.vergiDairesi} onChange={handleChange} />
       </div>
 
       <div>
         <Label>Fatura E-posta Adresi</Label>
-        <Input name="email" value={form.email} onChange={handleChange} />
+        <Input name="eposta" value={form.eposta} onChange={handleChange} />
       </div>
 
       <Button className="w-full mt-4" onClick={handleSubmit} disabled={loading}>
