@@ -7,7 +7,7 @@ import os from "os";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from "@supabase/supabase-js";
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium"; // Vercel uyumlu
+import chromium from "@sparticuz/chromium-min";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
