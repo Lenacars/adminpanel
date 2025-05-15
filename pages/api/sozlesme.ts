@@ -1,5 +1,3 @@
-// pages/api/sozlesme.ts
-
 import { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import os from "os";
@@ -13,6 +11,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getToday(): string {
+  const date = new Date();
+  return date.toLocaleDateString("tr-TR").split(".").reverse().join("-"); // YYYY-MM-DD
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("📥 [POST] API isteği alındı");
 
@@ -25,13 +28,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log("✅ Form verileri:", { musteriAdi, adres, vergiDairesi, eposta });
 
     const fontPath = path.join(process.cwd(), "fonts", "OpenSans-Regular.ttf");
-    console.log("📁 Font yolu:", fontPath);
-
     if (!fs.existsSync(fontPath)) {
       throw new Error(`❌ Font dosyası yok: ${fontPath}`);
     }
 
-    const fileName = `sozlesme-${uuidv4()}.pdf`;
+    const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
+    if (!fs.existsSync(sozlesmePath)) {
+      throw new Error("❌ sozlesme-metni.txt dosyası bulunamadı.");
+    }
+
+    // Dinamik dosya ismi
+    const today = getToday();
+    const sanitizedName = musteriAdi.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s]/g, "").replace(/\s+/g, "-");
+    const fileName = `LenaCars-Kiralama-Sozlesmesi-${sanitizedName}-${today}.pdf`;
     const tempPath = path.join(os.tmpdir(), fileName);
     console.log("📄 Geçici PDF yolu:", tempPath);
 
@@ -42,7 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const stream = fs.createWriteStream(tempPath);
     doc.pipe(stream);
 
-    doc.fontSize(14).text("ARAÇ KİRALAMA SÖZLEŞMESİ", { align: "center" }).moveDown();
+    // PDF başlığı ve müşteri bilgileri
+    doc.fontSize(14).text(`LenaCars Kurumsal Araç Kiralama Sözleşmesi - ${musteriAdi} - ${today}`, { align: "center" }).moveDown();
     doc.fontSize(10);
     doc.text(`Kiracı Unvanı: ${musteriAdi || "-"}`);
     doc.text(`Kiracı Adresi: ${adres || "-"}`);
@@ -50,11 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     doc.text(`Fatura E-posta: ${eposta || "-"}`);
     doc.moveDown();
 
-    const sozlesmePath = path.join(process.cwd(), "public", "sozlesme-metni.txt");
-    if (!fs.existsSync(sozlesmePath)) {
-      throw new Error("❌ sozlesme-metni.txt dosyası bulunamadı.");
-    }
-
+    // Metni PDF'e ekle
     const lines = fs.readFileSync(sozlesmePath, "utf8").split("\n");
     for (let i = 0; i < lines.length; i++) {
       if (i > 0 && i % 45 === 0) doc.addPage();
