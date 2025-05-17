@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { Editor } from "@tinymce/tinymce-react";
 
+// TinyMCE kaldırıldı
 const MediaLibrary = dynamic(() => import("@/components/MediaLibrary"), { ssr: false });
+const EditorJS = dynamic(() => import("@/components/editor/EditorJS"), { ssr: false });
 
 export default function NewPage() {
   const router = useRouter();
@@ -99,28 +100,8 @@ export default function NewPage() {
           onChange={(e) => handleChange("slug", e.target.value)}
         />
 
-        <Editor
-          tinymceScriptSrc="/tinymce/tinymce.min.js"
-          value={form.content}
-          onEditorChange={(value) => handleChange("content", value)}
-          init={{
-            height: 500,
-            menubar: "file edit view insert format tools table help",
-            plugins: [
-              "advlist", "autolink", "lists", "link", "image", "charmap", "preview", "anchor",
-              "searchreplace", "visualblocks", "fullscreen",
-              "insertdatetime", "media", "table", "code", "help", "wordcount"
-            ],
-            toolbar:
-              "undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | " +
-              "alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | " +
-              "removeformat | link image media | code fullscreen",
-            content_style: "body { font-family:Helvetica,Arial,sans-serif; font-size:14px }",
-            skin_url: "/tinymce/skins/ui/oxide",
-            content_css: "/tinymce/skins/content/default/content.css",
-            branding: false,
-          }}
-        />
+        {/* EditorJS entegresi */}
+        <EditorJS value={form.content} onChange={(value: string) => handleChange("content", value)} />
 
         <div className="border rounded p-4 bg-gray-50 shadow-inner mb-6">
           <label className="text-xs font-semibold text-gray-600 mb-2 block">Canlı Önizleme</label>
