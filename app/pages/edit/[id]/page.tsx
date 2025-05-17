@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Editor } from "@tinymce/tinymce-react";
+import dynamicEditor from "@/components/editor/EditorJS";
 
 const MediaLibrary = dynamic(() => import("@/components/MediaLibrary"), { ssr: false });
+const EditorJS = dynamic(() => import("@/components/editor/EditorJS"), { ssr: false });
 
 export default function EditPage() {
   const { id } = useParams();
@@ -14,7 +15,7 @@ export default function EditPage() {
   const [form, setForm] = useState({
     title: "",
     slug: "",
-    content: "",
+    content: null, // Editor.js JSON objesi
     seo_title: "",
     seo_description: "",
     banner_image: "",
@@ -43,7 +44,7 @@ export default function EditPage() {
       setForm({
         title: data.title || "",
         slug: data.slug || "",
-        content: data.content || "",
+        content: data.content || null,
         seo_title: data.seo_title || "",
         seo_description: data.seo_description || "",
         banner_image: data.banner_image || "",
@@ -67,7 +68,7 @@ export default function EditPage() {
     }
   };
 
-  const handleChange = (key: keyof typeof form, value: string) => {
+  const handleChange = (key: keyof typeof form, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -140,35 +141,8 @@ export default function EditPage() {
           onChange={(e) => handleChange("slug", e.target.value)}
         />
 
-        {/* TinyMCE Editor */}
-        <Editor
-          tinymceScriptSrc="/tinymce/tinymce.min.js"
-          value={form.content}
-          onEditorChange={(value) => handleChange("content", value)}
-          init={{
-            height: 500,
-            menubar: "file edit view insert format tools table help",
-            plugins: [
-              "advlist", "autolink", "lists", "link", "image", "charmap", "preview", "anchor",
-              "searchreplace", "visualblocks", "fullscreen",
-              "insertdatetime", "media", "table", "code", "help", "wordcount"
-            ],
-            toolbar:
-              "undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | " +
-              "alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | " +
-              "removeformat | link image media | code fullscreen",
-            content_style: "body { font-family:Helvetica,Arial,sans-serif; font-size:14px }",
-            skin_url: "/tinymce/skins/ui/oxide",
-            content_css: "/tinymce/skins/content/default/content.css",
-            branding: false,
-          }}
-        />
-
-        {/* Canlı Önizleme */}
-        <div className="border rounded p-4 bg-gray-50 shadow-inner mb-6">
-          <label className="text-xs font-semibold text-gray-600 mb-2 block">Canlı Önizleme</label>
-          <div dangerouslySetInnerHTML={{ __html: form.content }} className="prose max-w-none" />
-        </div>
+        {/* Editor.js */}
+        <EditorJS data={form.content} onChange={(value) => handleChange("content", value)} />
 
         {/* SEO Bilgileri */}
         <div>
