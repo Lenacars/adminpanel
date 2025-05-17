@@ -9,6 +9,7 @@ export async function POST(req: Request) {
       title: body.title,
       slug: body.slug,
       content: body.content || null,
+      mdx_content: body.mdx_content || null, // 👈 EKLENDİ
       seo_title: body.seo_title || null,
       seo_description: body.seo_description || null,
       banner_image: body.banner_image || null,
