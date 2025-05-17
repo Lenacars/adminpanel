@@ -1,42 +1,47 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import EditorJS from "@editorjs/editorjs";
 import Header from "@editorjs/header";
 import List from "@editorjs/list";
 import Paragraph from "@editorjs/paragraph";
+import Checklist from "@editorjs/checklist";
+import Raw from "@editorjs/raw"; // 👈 Yeni eklendi
 
-interface EditorJSRendererProps {
-  data?: any;
-  onChange?: (data: any) => void;
+interface EditorProps {
+  data: any;
+  onChange: (data: any) => void;
 }
 
-export default function EditorJSRenderer({ data, onChange }: EditorJSRendererProps) {
-  const ref = useRef<EditorJS | null>(null);
+export default function Editor({ data, onChange }: EditorProps) {
+  const ref = useRef<EditorJS>();
 
   useEffect(() => {
     if (!ref.current) {
       const editor = new EditorJS({
         holder: "editorjs",
-        data: data || undefined,
-        onChange: async () => {
-          const savedData = await editor.save();
-          onChange?.(savedData);
-        },
+        data,
         tools: {
           header: Header,
           list: List,
           paragraph: Paragraph,
+          checklist: Checklist,
+          raw: Raw, // 👈 Burada da tanımlandı
+        },
+        onChange: async () => {
+          const output = await editor.save();
+          onChange(output);
         },
       });
+
       ref.current = editor;
     }
 
     return () => {
       ref.current?.destroy();
-      ref.current = null;
+      ref.current = undefined;
     };
   }, []);
 
-  return <div id="editorjs" className="bg-white border rounded p-4 min-h-[300px]"></div>;
+  return <div id="editorjs" className="bg-white p-4 border rounded min-h-[300px]" />;
 }
