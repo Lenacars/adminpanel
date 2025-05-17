@@ -32,12 +32,14 @@ export async function PUT(req: Request, { params }: { params: Params }) {
     title,
     slug,
     content,
+    mdx_content, // 👈 EKLENDİ
     status,
     seo_title,
     seo_description,
     banner_image,
     thumbnail_image,
     menu_group,
+    parent,
   } = body;
 
   const { data, error } = await supabase
@@ -46,12 +48,14 @@ export async function PUT(req: Request, { params }: { params: Params }) {
       title,
       slug,
       content,
+      mdx_content, // 👈 EKLENDİ
       status,
       seo_title,
       seo_description,
       banner_image,
       thumbnail_image,
       menu_group,
+      parent: parent || null,
     })
     .eq("id", id);
 
