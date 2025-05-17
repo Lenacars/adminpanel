@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import dynamicEditor from "@/components/editor/EditorJS";
 
 const MediaLibrary = dynamic(() => import("@/components/MediaLibrary"), { ssr: false });
 const EditorJS = dynamic(() => import("@/components/editor/EditorJS"), { ssr: false });
@@ -15,7 +14,8 @@ export default function EditPage() {
   const [form, setForm] = useState({
     title: "",
     slug: "",
-    content: null, // Editor.js JSON objesi
+    content: null,
+    mdx_content: "", // 👈 EKLENDİ
     seo_title: "",
     seo_description: "",
     banner_image: "",
@@ -45,6 +45,7 @@ export default function EditPage() {
         title: data.title || "",
         slug: data.slug || "",
         content: data.content || null,
+        mdx_content: data.mdx_content || "", // 👈 EKLENDİ
         seo_title: data.seo_title || "",
         seo_description: data.seo_description || "",
         banner_image: data.banner_image || "",
@@ -144,6 +145,18 @@ export default function EditPage() {
         {/* Editor.js */}
         <EditorJS data={form.content} onChange={(value) => handleChange("content", value)} />
 
+        {/* MDX İçeriği Alanı */}
+        <div>
+          <label className="text-sm font-semibold">MDX İçeriği</label>
+          <textarea
+            className="border px-3 py-2 w-full rounded mt-2 font-mono text-sm"
+            rows={16}
+            placeholder="MDX içeriği buraya yazın..."
+            value={form.mdx_content || ""}
+            onChange={(e) => handleChange("mdx_content", e.target.value)}
+          />
+        </div>
+
         {/* SEO Bilgileri */}
         <div>
           <h2 className="text-lg font-semibold">SEO Bilgileri</h2>
@@ -162,13 +175,14 @@ export default function EditPage() {
           />
         </div>
 
-        {/* SEO Snippet Preview */}
+        {/* SEO Snippet */}
         <div className="bg-[#111] text-white p-6 rounded shadow-inner mt-4 space-y-2 text-sm font-sans">
           <p className="text-green-400">https://lenacars.com/{form.slug}</p>
           <p className="text-blue-400 text-lg">{form.seo_title || "LenaCars | Araç Kiralama"}</p>
-          <p className="text-gray-300">{form.seo_description || "Araç kiralama avantajlarını öğrenin. Şirketinize en uygun çözümü keşfedin."}</p>
+          <p className="text-gray-300">{form.seo_description || "Araç kiralama avantajlarını öğrenin."}</p>
         </div>
 
+        {/* Diğer alanlar */}
         <select
           className="border px-3 py-2 w-full rounded mt-6"
           value={form.menu_group}
