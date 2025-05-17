@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
-// TinyMCE kaldırıldı
+// MediaLibrary bileşeni
 const MediaLibrary = dynamic(() => import("@/components/MediaLibrary"), { ssr: false });
-const EditorJS = dynamic(() => import("@/components/editor/EditorJS"), { ssr: false });
 
 export default function NewPage() {
   const router = useRouter();
@@ -14,7 +13,7 @@ export default function NewPage() {
   const [form, setForm] = useState({
     title: "",
     slug: "",
-    content: "",
+    mdx_content: `# Yeni Sayfa\n\nBuraya bileşenler dahil tüm MDX içeriğini yazabilirsiniz.`,
     seo_title: "",
     seo_description: "",
     banner_image: "",
@@ -100,14 +99,21 @@ export default function NewPage() {
           onChange={(e) => handleChange("slug", e.target.value)}
         />
 
-        {/* EditorJS entegresi */}
-        <EditorJS value={form.content} onChange={(value: string) => handleChange("content", value)} />
+        {/* MDX içeriği textarea */}
+        <textarea
+          className="border px-3 py-2 w-full rounded min-h-[300px] font-mono text-sm"
+          placeholder="MDX içeriğinizi buraya yazın. Örneğin: <MyComponent />"
+          value={form.mdx_content}
+          onChange={(e) => handleChange("mdx_content", e.target.value)}
+        />
 
+        {/* Önizleme */}
         <div className="border rounded p-4 bg-gray-50 shadow-inner mb-6">
-          <label className="text-xs font-semibold text-gray-600 mb-2 block">Canlı Önizleme</label>
-          <div dangerouslySetInnerHTML={{ __html: form.content }} className="prose max-w-none" />
+          <label className="text-xs font-semibold text-gray-600 mb-2 block">Canlı Önizleme (MDX)</label>
+          <pre className="whitespace-pre-wrap text-sm text-gray-700">{form.mdx_content}</pre>
         </div>
 
+        {/* SEO Bilgileri */}
         <div>
           <h2 className="text-lg font-semibold">SEO Bilgileri</h2>
           <input
@@ -125,6 +131,7 @@ export default function NewPage() {
           />
         </div>
 
+        {/* SEO Snippet */}
         <div className="bg-[#111] text-white p-6 rounded shadow-inner mt-4 space-y-2 text-sm font-sans">
           <p className="text-green-400">https://lenacars.com/{form.slug}</p>
           <p className="text-blue-400 text-lg">{form.seo_title || "LenaCars | Araç Kiralama"}</p>
@@ -156,6 +163,7 @@ export default function NewPage() {
           ))}
         </select>
 
+        {/* Görsel Seçimleri */}
         <div className="flex gap-6">
           <div className="flex-1">
             <label className="block text-sm mb-1 font-semibold">Banner Görseli</label>
