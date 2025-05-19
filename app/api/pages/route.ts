@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const payload = {
       title: body.title,
       slug: body.slug,
-      html_content: body.mdx_content || null, // 👈 mdx_content → html_content olarak kaydet
+      html_content: body.html_content || null, // ✅ DOĞRU ALAN BURASI
       seo_title: body.seo_title || null,
       seo_description: body.seo_description || null,
       banner_image: body.banner_image || null,
