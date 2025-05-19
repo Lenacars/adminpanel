@@ -31,8 +31,7 @@ export async function PUT(req: Request, { params }: { params: Params }) {
   const {
     title,
     slug,
-    content,
-    mdx_content, // 👈 EKLENDİ
+    html_content, // ✅ mdx_content yerine html_content kullanılacak
     status,
     seo_title,
     seo_description,
@@ -40,6 +39,7 @@ export async function PUT(req: Request, { params }: { params: Params }) {
     thumbnail_image,
     menu_group,
     parent,
+    published,
   } = body;
 
   const { data, error } = await supabase
@@ -47,8 +47,7 @@ export async function PUT(req: Request, { params }: { params: Params }) {
     .update({
       title,
       slug,
-      content,
-      mdx_content, // 👈 EKLENDİ
+      html_content: html_content || null,
       status,
       seo_title,
       seo_description,
@@ -56,6 +55,7 @@ export async function PUT(req: Request, { params }: { params: Params }) {
       thumbnail_image,
       menu_group,
       parent: parent || null,
+      published: published ?? false,
     })
     .eq("id", id);
 
