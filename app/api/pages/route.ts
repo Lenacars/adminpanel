@@ -8,8 +8,7 @@ export async function POST(req: Request) {
     const payload = {
       title: body.title,
       slug: body.slug,
-      content: body.content || null,
-      mdx_content: body.mdx_content || null, // 👈 EKLENDİ
+      html_content: body.mdx_content || null, // 👈 mdx_content → html_content olarak kaydet
       seo_title: body.seo_title || null,
       seo_description: body.seo_description || null,
       banner_image: body.banner_image || null,
@@ -17,6 +16,7 @@ export async function POST(req: Request) {
       menu_group: body.menu_group || null,
       status: body.status || "draft",
       parent: body.parent || null,
+      published: body.published ?? false,
     };
 
     console.log("Supabase'e gönderilecek veri:", payload);
