@@ -39,6 +39,7 @@ interface PageItem {
 export default function MenuManagementPage() {
   const [pages, setPages] = useState<PageItem[]>([]);
   const [groupList, setGroupList] = useState<string[]>([]);
+  const [orphanPages, setOrphanPages] = useState<PageItem[]>([]);
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [newGroupName, setNewGroupName] = useState("");
@@ -57,12 +58,14 @@ export default function MenuManagementPage() {
     if (data) {
       setPages(data);
 
-      const rawGroups = data
-        .filter((p) => p.menu_group)
-        .map((p) => normalizeGroup(p.menu_group!));
+      const grouped = data.filter((p) => p.menu_group);
+      const orphaned = data.filter((p) => !p.menu_group && !p.parent);
 
+      const rawGroups = grouped.map((p) => normalizeGroup(p.menu_group!));
       const uniqueOrderedGroups = Array.from(new Set(rawGroups));
+
       setGroupList(uniqueOrderedGroups);
+      setOrphanPages(orphaned);
     }
   };
 
@@ -148,7 +151,9 @@ export default function MenuManagementPage() {
         <SortableContext items={groupList} strategy={verticalListSortingStrategy}>
           <div className="space-y-6">
             {groupList.map((group) => {
-              const items = pages.filter((p) => normalizeGroup(p.menu_group || "") === group);
+              const items = pages.filter(
+                (p) => normalizeGroup(p.menu_group || "") === group
+              );
 
               return (
                 <GroupBox
@@ -171,16 +176,25 @@ export default function MenuManagementPage() {
         </SortableContext>
       </DndContext>
 
-      {/* Gruplandırılmamış sayfalar */}
-      {pages.filter((p) => !p.menu_group).length > 0 && (
-        <div className="mt-10 border rounded shadow-sm">
-          <div className="bg-gray-100 px-4 py-2 font-semibold text-gray-700">
-            Grubu Olmayan Sayfalar
-          </div>
-          <ul className="divide-y divide-gray-100">
-            {pages.filter((p) => !p.menu_group).map((item) => (
+      {orphanPages.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-xl font-semibold mb-4">Grupsuz Sayfalar</h2>
+          <ul className="border rounded divide-y divide-gray-100">
+            {orphanPages.map((item) => (
               <li key={item.id} className="px-6 py-2 text-gray-800 flex justify-between">
                 <div>• {item.title}</div>
+                <button
+                  onClick={async () => {
+                    await supabase
+                      .from("Pages")
+                      .update({ menu_group: null, group_sort_order: 0 })
+                      .eq("id", item.id);
+                    fetchPages();
+                  }}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >
+                  kaldır
+                </button>
               </li>
             ))}
           </ul>
@@ -200,7 +214,10 @@ function GroupBox({
   editingValue,
   setEditingValue,
 }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: group });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: group,
+  });
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -235,6 +252,7 @@ function GroupBox({
           </button>
         </div>
       </div>
+
       <ul className="divide-y divide-gray-100">
         {items.map((item: PageItem) => (
           <li key={item.id} className="px-6 py-2 text-gray-800 flex justify-between">
