@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Pencil } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -24,12 +24,20 @@ interface PageItem {
   menu_group: string | null;
   parent: string | null;
   sort_order: number | null;
+  group_sort_order: number | null;
+}
+
+interface GroupItem {
+  name: string;
+  order: number;
 }
 
 export default function MenuManagementPage() {
   const [activeTab, setActiveTab] = useState<"görünüm" | "düzenle">("görünüm");
   const [pages, setPages] = useState<PageItem[]>([]);
-  const [menuGroups, setMenuGroups] = useState<string[]>([]);
+  const [groupList, setGroupList] = useState<GroupItem[]>([]);
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -43,21 +51,52 @@ export default function MenuManagementPage() {
   const fetchPages = async () => {
     const { data, error } = await supabase
       .from("Pages")
-      .select("id, title, menu_group, parent, sort_order")
-      .order("sort_order", { ascending: true });
+      .select("id, title, menu_group, parent, sort_order, group_sort_order")
+      .order("group_sort_order", { ascending: true });
 
     if (!error && data) {
       setPages(data);
-      const groups = Array.from(
-        new Set(
-          data
-            .map((p) => p.menu_group?.trim())
-            .filter(Boolean)
-            .map((g) => normalizeGroup(g!))
-        )
-      );
-      setMenuGroups(groups);
+
+      const rawGroups = data
+        .filter((p) => p.menu_group)
+        .map((p) => ({
+          name: normalizeGroup(p.menu_group!),
+          order: p.group_sort_order ?? 0,
+        }));
+
+      const uniqueGroups = Array.from(
+        new Map(rawGroups.map((g) => [g.name, g])).values()
+      ).sort((a, b) => a.order - b.order);
+
+      setGroupList(uniqueGroups);
     }
+  };
+
+  const updateGroupSortOrder = async (updated: GroupItem[]) => {
+    for (let i = 0; i < updated.length; i++) {
+      await supabase
+        .from("Pages")
+        .update({ group_sort_order: i })
+        .eq("menu_group", updated[i].name);
+    }
+    fetchPages();
+  };
+
+  const updateGroupName = async (oldName: string, newName: string) => {
+    await supabase
+      .from("Pages")
+      .update({ menu_group: newName })
+      .eq("menu_group", oldName);
+    fetchPages();
+  };
+
+  const deleteGroup = async (groupName: string) => {
+    if (!confirm(`"${groupName}" grubunu silmek istiyor musun?`)) return;
+    await supabase
+      .from("Pages")
+      .update({ menu_group: null, group_sort_order: 0 })
+      .eq("menu_group", groupName);
+    fetchPages();
   };
 
   const updateMenuGroup = async (pageId: string, newGroup: string) => {
@@ -77,22 +116,21 @@ export default function MenuManagementPage() {
     fetchPages();
   };
 
-  const addNewGroup = () => {
+  const addNewGroup = async () => {
     const name = normalizeGroup(newGroupName.trim());
-    if (name !== "" && !menuGroups.includes(name)) {
-      setMenuGroups((prev) => [...prev, name]);
+    if (name !== "" && !groupList.find((g) => g.name === name)) {
+      const newOrder = groupList.length;
+      await supabase.from("Pages").update({ group_sort_order: newOrder }).eq("menu_group", name);
+      setGroupList((prev) => [...prev, { name, order: newOrder }]);
       setNewGroupName("");
     }
   };
 
-  const deleteGroup = async (groupName: string) => {
-    if (!window.confirm(`"${groupName}" grubunu kaldırmak istiyor musun?`)) return;
-    await supabase.from("Pages").update({ menu_group: null }).eq("menu_group", groupName);
-    fetchPages();
-  };
-
   const removeSinglePageFromGroup = async (pageId: string) => {
-    await supabase.from("Pages").update({ menu_group: null }).eq("id", pageId);
+    await supabase
+      .from("Pages")
+      .update({ menu_group: null, group_sort_order: 0 })
+      .eq("id", pageId);
     fetchPages();
   };
 
@@ -106,48 +144,77 @@ export default function MenuManagementPage() {
     });
 
     return (
-      <div className="space-y-6">
-        {Object.entries(grouped).map(([group, items]) => (
-          <div key={group} className="border border-gray-200 rounded-md shadow-sm">
-            <div className="bg-[#6A3C96] text-white px-4 py-2 rounded-t-md flex justify-between items-center">
-              <span className="text-lg font-semibold">🟪 {group}</span>
-              {group !== "Menüsüz" && (
-                <button
-                  onClick={() => deleteGroup(group)}
-                  className="text-red-300 hover:text-red-500 text-sm"
-                >
-                  Kaldır
-                </button>
-              )}
-            </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={({ active, over }) => {
+          if (active.id !== over?.id) {
+            const oldIndex = groupList.findIndex((i) => i.name === active.id);
+            const newIndex = groupList.findIndex((i) => i.name === over?.id);
+            const sorted = arrayMove(groupList, oldIndex, newIndex);
+            setGroupList(sorted);
+            updateGroupSortOrder(sorted);
+          }
+        }}
+      >
+        <SortableContext items={groupList.map((g) => g.name)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-6">
+            {groupList.map((group) => {
+              const items = grouped[group.name] || [];
+              return (
+                <div key={group.name} className="border border-gray-200 rounded-md shadow-sm">
+                  <div className="bg-[#6A3C96] text-white px-4 py-2 rounded-t-md flex justify-between items-center">
+                    <div className="flex gap-2 items-center">
+                      <GripVertical size={16} className="cursor-move text-white" />
+                      {editingGroup === group.name ? (
+                        <input
+                          value={editingGroupName}
+                          onChange={(e) => setEditingGroupName(e.target.value)}
+                          onBlur={() => {
+                            updateGroupName(group.name, editingGroupName);
+                            setEditingGroup(null);
+                          }}
+                          className="bg-white text-black px-2 py-1 rounded text-sm"
+                        />
+                      ) : (
+                        <span className="text-lg font-semibold">🟪 {group.name}</span>
+                      )}
+                    </div>
+                    {group.name !== "Menüsüz" && (
+                      <div className="flex gap-3 items-center">
+                        <button onClick={() => {
+                          setEditingGroup(group.name);
+                          setEditingGroupName(group.name);
+                        }}>
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteGroup(group.name)}
+                          className="text-red-300 hover:text-red-500 text-sm"
+                        >
+                          Kaldır
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={({ active, over }) => {
-                if (active.id !== over?.id) {
-                  const oldIndex = items.findIndex((i) => i.id === active.id);
-                  const newIndex = items.findIndex((i) => i.id === over?.id);
-                  const sorted = arrayMove(items, oldIndex, newIndex);
-                  updateSortOrder(sorted);
-                }
-              }}
-            >
-              <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                <ul className="divide-y divide-gray-100">
-                  {items.map((item) => (
-                    <SortableItem
-                      key={item.id}
-                      item={item}
-                      onRemove={() => removeSinglePageFromGroup(item.id)}
-                    />
-                  ))}
-                </ul>
-              </SortableContext>
-            </DndContext>
+                  <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                    <ul className="divide-y divide-gray-100">
+                      {items.map((item) => (
+                        <SortableItem
+                          key={item.id}
+                          item={item}
+                          onRemove={() => removeSinglePageFromGroup(item.id)}
+                        />
+                      ))}
+                    </ul>
+                  </SortableContext>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
     );
   };
 
@@ -187,9 +254,9 @@ export default function MenuManagementPage() {
                 className="border border-gray-300 rounded-md px-2 py-1"
               >
                 <option value="">- Seçiniz -</option>
-                {menuGroups.map((group) => (
-                  <option key={group} value={group}>
-                    {group}
+                {groupList.map((group) => (
+                  <option key={group.name} value={group.name}>
+                    {group.name}
                   </option>
                 ))}
               </select>
@@ -226,17 +293,13 @@ export default function MenuManagementPage() {
       <div className="flex space-x-2 mb-6">
         <button
           onClick={() => setActiveTab("görünüm")}
-          className={`px-4 py-2 rounded-md font-medium ${
-            activeTab === "görünüm" ? "bg-[#6A3C96] text-white" : "bg-gray-100 text-gray-800"
-          }`}
+          className={`px-4 py-2 rounded-md font-medium ${activeTab === "görünüm" ? "bg-[#6A3C96] text-white" : "bg-gray-100 text-gray-800"}`}
         >
           Menü Görünümü
         </button>
         <button
           onClick={() => setActiveTab("düzenle")}
-          className={`px-4 py-2 rounded-md font-medium ${
-            activeTab === "düzenle" ? "bg-[#6A3C96] text-white" : "bg-gray-100 text-gray-800"
-          }`}
+          className={`px-4 py-2 rounded-md font-medium ${activeTab === "düzenle" ? "bg-[#6A3C96] text-white" : "bg-gray-100 text-gray-800"}`}
         >
           Menü Düzenleme
         </button>
