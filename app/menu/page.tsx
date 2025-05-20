@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-// 🧠 Her kelimenin baş harfini büyüten fonksiyon
+// ✅ Grup adlarını normalize eden fonksiyon
 function normalizeGroup(str: string) {
   return str
     .trim()
@@ -52,18 +52,19 @@ export default function MenuManagementPage() {
   const fetchPages = async () => {
     const { data } = await supabase
       .from("Pages")
-      .select("id, title, menu_group, parent, sort_order, group_sort_order");
+      .select("id, title, menu_group, parent, sort_order, group_sort_order")
+      .order("group_sort_order", { ascending: true });
 
     if (data) {
       setPages(data);
-      const uniqueGroups = Array.from(
-        new Set(
-          data
-            .filter((p) => p.menu_group)
-            .map((p) => normalizeGroup(p.menu_group!))
-        )
-      );
-      setGroupList(uniqueGroups);
+
+      const rawGroups = data
+        .filter((p) => p.menu_group)
+        .map((p) => normalizeGroup(p.menu_group!));
+
+      const uniqueOrderedGroups = Array.from(new Set(rawGroups));
+
+      setGroupList(uniqueOrderedGroups);
     }
   };
 
