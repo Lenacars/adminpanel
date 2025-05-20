@@ -18,7 +18,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-// ✅ Grup adlarını normalize eden fonksiyon
 function normalizeGroup(str: string) {
   return str
     .trim()
@@ -63,7 +62,6 @@ export default function MenuManagementPage() {
         .map((p) => normalizeGroup(p.menu_group!));
 
       const uniqueOrderedGroups = Array.from(new Set(rawGroups));
-
       setGroupList(uniqueOrderedGroups);
     }
   };
@@ -150,9 +148,7 @@ export default function MenuManagementPage() {
         <SortableContext items={groupList} strategy={verticalListSortingStrategy}>
           <div className="space-y-6">
             {groupList.map((group) => {
-              const items = pages.filter(
-                (p) => normalizeGroup(p.menu_group || "") === group
-              );
+              const items = pages.filter((p) => normalizeGroup(p.menu_group || "") === group);
 
               return (
                 <GroupBox
@@ -174,6 +170,22 @@ export default function MenuManagementPage() {
           </div>
         </SortableContext>
       </DndContext>
+
+      {/* Gruplandırılmamış sayfalar */}
+      {pages.filter((p) => !p.menu_group).length > 0 && (
+        <div className="mt-10 border rounded shadow-sm">
+          <div className="bg-gray-100 px-4 py-2 font-semibold text-gray-700">
+            Grubu Olmayan Sayfalar
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {pages.filter((p) => !p.menu_group).map((item) => (
+              <li key={item.id} className="px-6 py-2 text-gray-800 flex justify-between">
+                <div>• {item.title}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -188,10 +200,7 @@ function GroupBox({
   editingValue,
   setEditingValue,
 }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
-    id: group,
-  });
-
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: group });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -226,7 +235,6 @@ function GroupBox({
           </button>
         </div>
       </div>
-
       <ul className="divide-y divide-gray-100">
         {items.map((item: PageItem) => (
           <li key={item.id} className="px-6 py-2 text-gray-800 flex justify-between">
