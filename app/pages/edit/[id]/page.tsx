@@ -21,6 +21,7 @@ export default function EditPage() {
     menu_group: "",
     status: "draft",
     parent: "",
+    external_url: "", // ✅ eklendi
   });
 
   const [parentPages, setParentPages] = useState<{ id: string; title: string }[]>([]);
@@ -50,6 +51,7 @@ export default function EditPage() {
         menu_group: data.menu_group || "",
         status: data.status || "draft",
         parent: data.parent || "",
+        external_url: data.external_url || "", // ✅ eklendi
       });
     } else {
       alert("Sayfa verisi alınamadı.");
@@ -126,7 +128,15 @@ export default function EditPage() {
         <input className="border px-3 py-2 w-full rounded" placeholder="Başlık" value={form.title} onChange={(e) => handleChange("title", e.target.value)} />
         <input className="border px-3 py-2 w-full rounded" placeholder="Slug" value={form.slug} onChange={(e) => handleChange("slug", e.target.value)} />
 
-        {/* HTML içerik alanı */}
+        {/* External URL alanı */}
+        <input
+          className="border px-3 py-2 w-full rounded"
+          placeholder="Harici Bağlantı (https://...)"
+          value={form.external_url}
+          onChange={(e) => handleChange("external_url", e.target.value)}
+        />
+        <p className="text-sm text-gray-500 -mt-4 mb-4">Dış bağlantı girersen, bu sayfaya tıklandığında kullanıcı o bağlantıya yönlendirilir.</p>
+
         <textarea
           className="border px-3 py-2 w-full rounded min-h-[300px] font-mono text-sm"
           placeholder="<p>HTML içeriği</p>"
@@ -139,12 +149,10 @@ export default function EditPage() {
           <div dangerouslySetInnerHTML={{ __html: form.html_content }} className="prose max-w-none" />
         </div>
 
-        {/* SEO Bilgileri */}
         <h2 className="text-lg font-semibold">SEO Bilgileri</h2>
         <input className="border px-3 py-2 w-full rounded mt-2" placeholder="SEO Başlık" value={form.seo_title} onChange={(e) => handleChange("seo_title", e.target.value)} />
         <textarea className="border px-3 py-2 w-full rounded mt-2" rows={3} placeholder="SEO Açıklama" value={form.seo_description} onChange={(e) => handleChange("seo_description", e.target.value)} />
 
-        {/* SEO Snippet */}
         <div className="bg-[#111] text-white p-6 rounded shadow-inner mt-4 space-y-2 text-sm font-sans">
           <p className="text-green-400">https://lenacars.com/{form.slug}</p>
           <p className="text-blue-400 text-lg">{form.seo_title || "LenaCars | Araç Kiralama"}</p>
@@ -168,7 +176,6 @@ export default function EditPage() {
           ))}
         </select>
 
-        {/* Görsel Alanları */}
         <div className="flex gap-6">
           <div className="flex-1">
             <label className="block text-sm mb-1 font-semibold">Banner Görseli</label>
