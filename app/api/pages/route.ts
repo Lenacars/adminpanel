@@ -1,9 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
-
+export async function POST(req: Request) {
   try {
     const body = await req.json();
 
@@ -11,6 +9,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       title: body.title,
       slug: body.slug,
       html_content: body.html_content || null,
+      content: body.content || null, // tablo yapında var
       seo_title: body.seo_title || null,
       seo_description: body.seo_description || null,
       banner_image: body.banner_image || null,
@@ -19,59 +18,40 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       status: body.status || "draft",
       parent: body.parent || null,
       published: body.published ?? false,
-      external_url: body.external_url || null, // ✅ eklendi
+      external_url: body.external_url || null, // ✅ dış bağlantı
     };
 
+    console.log("Supabase'e gönderilen payload:", payload);
+
+    const { data, error } = await supabase.from("Pages").insert([payload]);
+
+    if (error) {
+      console.error("POST Pages Hatası:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("POST Pages Genel Hata:", error);
+    return NextResponse.json({ error: "Sunucu hatası oluştu." }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
     const { data, error } = await supabase
       .from("Pages")
-      .update(payload)
-      .eq("id", id)
-      .select();
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("PUT Pages Hatası:", error.message);
+      console.error("GET Pages Hatası:", error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("PUT Pages Genel Hata:", error);
-    return NextResponse.json({ error: "Sunucu hatası oluştu." }, { status: 500 });
-  }
-}
-
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
-
-  try {
-    const { data, error } = await supabase.from("Pages").select("*").eq("id", id).single();
-
-    if (error) {
-      console.error("GET Page Hatası:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("GET Page Genel Hata:", error);
-    return NextResponse.json({ error: "Sunucu hatası oluştu." }, { status: 500 });
-  }
-}
-
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
-
-  try {
-    const { error } = await supabase.from("Pages").delete().eq("id", id);
-
-    if (error) {
-      console.error("DELETE Page Hatası:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE Page Genel Hata:", error);
+    console.error("GET Pages Genel Hata:", error);
     return NextResponse.json({ error: "Sunucu hatası oluştu." }, { status: 500 });
   }
 }
