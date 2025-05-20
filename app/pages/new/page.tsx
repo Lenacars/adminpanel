@@ -20,6 +20,7 @@ export default function NewPage() {
     menu_group: "",
     status: "draft",
     parent: "",
+    external_url: "", // ✅ eklendi
   });
 
   const [parentPages, setParentPages] = useState<{ id: string; title: string }[]>([]);
@@ -86,6 +87,15 @@ export default function NewPage() {
       <div className="space-y-6 bg-white p-8 rounded shadow-md">
         <input className="border px-3 py-2 w-full rounded" placeholder="Başlık" value={form.title} onChange={(e) => handleChange("title", e.target.value)} />
         <input className="border px-3 py-2 w-full rounded" placeholder="Slug" value={form.slug} onChange={(e) => handleChange("slug", e.target.value)} />
+
+        {/* External URL alanı */}
+        <input
+          className="border px-3 py-2 w-full rounded"
+          placeholder="Harici Bağlantı (https://...)"
+          value={form.external_url}
+          onChange={(e) => handleChange("external_url", e.target.value)}
+        />
+        <p className="text-sm text-gray-500 -mt-4 mb-4">Dış bağlantı girersen, bu sayfaya tıklandığında kullanıcı o bağlantıya yönlendirilir.</p>
 
         {/* HTML İçerik */}
         <textarea
