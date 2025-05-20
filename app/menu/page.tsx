@@ -18,6 +18,16 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+// 🧠 Her kelimenin baş harfini büyüten fonksiyon
+function normalizeGroup(str: string) {
+  return str
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 interface PageItem {
   id: string;
   title: string;
@@ -47,7 +57,11 @@ export default function MenuManagementPage() {
     if (data) {
       setPages(data);
       const uniqueGroups = Array.from(
-        new Set(data.filter(p => p.menu_group).map(p => p.menu_group!.trim()))
+        new Set(
+          data
+            .filter((p) => p.menu_group)
+            .map((p) => normalizeGroup(p.menu_group!))
+        )
       );
       setGroupList(uniqueGroups);
     }
@@ -55,29 +69,40 @@ export default function MenuManagementPage() {
 
   const updateGroupSortOrder = async (sortedGroups: string[]) => {
     for (let i = 0; i < sortedGroups.length; i++) {
-      await supabase
-        .from("Pages")
-        .update({ group_sort_order: i })
-        .eq("menu_group", sortedGroups[i]);
+      const group = sortedGroups[i];
+      const realGroup = pages.find((p) => normalizeGroup(p.menu_group || "") === group)?.menu_group;
+      if (realGroup) {
+        await supabase
+          .from("Pages")
+          .update({ group_sort_order: i })
+          .eq("menu_group", realGroup);
+      }
     }
     fetchPages();
   };
 
   const updateGroupName = async (oldName: string, newName: string) => {
-    await supabase
-      .from("Pages")
-      .update({ menu_group: newName })
-      .eq("menu_group", oldName);
-    fetchPages();
-    setEditingGroup(null);
+    const normalized = normalizeGroup(newName);
+    const realGroup = pages.find((p) => normalizeGroup(p.menu_group || "") === oldName)?.menu_group;
+    if (realGroup) {
+      await supabase
+        .from("Pages")
+        .update({ menu_group: normalized })
+        .eq("menu_group", realGroup);
+      fetchPages();
+      setEditingGroup(null);
+    }
   };
 
   const deleteGroup = async (groupName: string) => {
+    const realGroup = pages.find((p) => normalizeGroup(p.menu_group || "") === groupName)?.menu_group;
+    if (!realGroup) return alert("Grup bulunamadı.");
     if (!confirm(`"${groupName}" grubunu silmek istiyor musun?`)) return;
+
     await supabase
       .from("Pages")
       .update({ menu_group: null, group_sort_order: 0 })
-      .eq("menu_group", groupName);
+      .eq("menu_group", realGroup);
     fetchPages();
   };
 
@@ -94,7 +119,7 @@ export default function MenuManagementPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Menü Yönetimi</h1>
+      <h1 className="text-2xl font-bold mb-6">Menü Yönetimi</h1>
 
       <div className="mb-6 flex gap-2">
         <input
@@ -105,8 +130,8 @@ export default function MenuManagementPage() {
         />
         <button
           onClick={async () => {
-            if (!newGroupName.trim()) return;
-            const name = newGroupName.trim();
+            const name = normalizeGroup(newGroupName);
+            if (!name || groupList.includes(name)) return;
             await supabase
               .from("Pages")
               .update({ group_sort_order: groupList.length })
@@ -124,22 +149,24 @@ export default function MenuManagementPage() {
         <SortableContext items={groupList} strategy={verticalListSortingStrategy}>
           <div className="space-y-6">
             {groupList.map((group) => {
-              const items = pages.filter((p) => p.menu_group === group);
+              const items = pages.filter(
+                (p) => normalizeGroup(p.menu_group || "") === group
+              );
 
               return (
-                <SortableGroupBox
+                <GroupBox
                   key={group}
                   group={group}
                   items={items}
+                  isEditing={editingGroup === group}
+                  editingValue={editingValue}
+                  setEditingValue={setEditingValue}
                   onEdit={() => {
                     setEditingGroup(group);
                     setEditingValue(group);
                   }}
                   onSave={(val) => updateGroupName(group, val)}
                   onDelete={() => deleteGroup(group)}
-                  isEditing={editingGroup === group}
-                  editingValue={editingValue}
-                  setEditingValue={setEditingValue}
                 />
               );
             })}
@@ -150,7 +177,7 @@ export default function MenuManagementPage() {
   );
 }
 
-function SortableGroupBox({
+function GroupBox({
   group,
   items,
   onEdit,
@@ -163,6 +190,7 @@ function SortableGroupBox({
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: group,
   });
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -180,9 +208,7 @@ function SortableGroupBox({
               value={editingValue}
               onChange={(e) => setEditingValue(e.target.value)}
               onBlur={() => onSave(editingValue)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onSave(editingValue);
-              }}
+              onKeyDown={(e) => e.key === "Enter" && onSave(editingValue)}
               className="bg-white text-black px-2 py-1 rounded text-sm"
               autoFocus
             />
@@ -190,7 +216,7 @@ function SortableGroupBox({
             <span className="font-semibold">{group}</span>
           )}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button onClick={onEdit}>
             <Pencil size={14} />
           </button>
@@ -199,8 +225,9 @@ function SortableGroupBox({
           </button>
         </div>
       </div>
+
       <ul className="divide-y divide-gray-100">
-        {items.map((item: any) => (
+        {items.map((item: PageItem) => (
           <li key={item.id} className="px-6 py-2 text-gray-800 flex justify-between">
             <div>• {item.title}</div>
             <button
@@ -209,6 +236,7 @@ function SortableGroupBox({
                   .from("Pages")
                   .update({ menu_group: null, group_sort_order: 0 })
                   .eq("id", item.id);
+                location.reload();
               }}
               className="text-xs text-red-400 hover:text-red-600"
             >
