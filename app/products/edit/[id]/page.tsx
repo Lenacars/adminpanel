@@ -10,14 +10,15 @@ interface Props {
 export default async function Page({ params }: Props) {
   const supabase = createClient();
 
-  const { data, error } = await supabase
+  // 1. Ürün verisini çek
+  const { data: productData, error: productError } = await supabase
     .from("Araclar")
-    .select("*, variations:variations!product_id(*)")
+    .select("*")
     .eq("id", params.id)
     .maybeSingle();
 
-  if (error) {
-    console.error("Supabase Hatası:", error.message);
+  if (productError) {
+    console.error("Ürün verisi alınırken hata:", productError.message);
     return (
       <div className="p-10 text-center text-red-500 text-lg">
         Ürün verisi alınırken bir hata oluştu.
@@ -25,7 +26,7 @@ export default async function Page({ params }: Props) {
     );
   }
 
-  if (!data) {
+  if (!productData) {
     return (
       <div className="p-10 text-center text-red-500 text-lg">
         Ürün bulunamadı.
@@ -33,9 +34,23 @@ export default async function Page({ params }: Props) {
     );
   }
 
+  // 2. Varyasyonları ayrı çek
+  const { data: variationsData, error: variationsError } = await supabase
+    .from("variations")
+    .select("*")
+    .eq("arac_id", params.id);
+
+  if (variationsError) {
+    console.error("Varyasyon verisi alınırken hata:", variationsError.message);
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <EditProductPage initialData={data} />
+      <EditProductPage
+        initialData={productData}
+        variations={variationsData || []}
+        mode="edit"
+      />
     </div>
   );
 }
