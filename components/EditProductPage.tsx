@@ -35,12 +35,12 @@ interface Product {
 // Sabitler
 const YAKIT_OPTIONS = ["Benzin", "Benzin + LPG", "Dizel", "Elektrik", "Hibrit"];
 const VITES_OPTIONS = ["Manuel", "Otomatik"];
-const MARKA_OPTIONS = ["Audi", "BMW", "Citroen", "Dacia", "Fiat", "Ford", "Honda", "Hyundai"]; // Örnek markalar, genişletilebilir
+const MARKA_OPTIONS = ["Audi", "BMW", "Citroen", "Dacia", "Fiat", "Ford", "Honda", "Hyundai"];
 const SEGMENT_OPTIONS = ["Ekonomik", "Orta", "Ticari", "SUV", "Premium"];
 const BODYTYPE_OPTIONS = ["Hatchback", "Sedan", "SUV", "Pickup", "Minivan"];
 const DURUM_OPTIONS = ["Sıfır", "İkinci El"];
-const KILOMETRE_OPTIONS = ["1.000 KM/Ay", "2.000 KM/Ay", "10.000 KM/Yıl", "15.000 KM/Yıl", "Sınırsız"]; // Örnekler
-const SURE_OPTIONS = ["3 Ay", "6 Ay", "12 Ay", "24 Ay", "36 Ay"]; // Örnekler
+const KILOMETRE_OPTIONS = ["1.000 KM/Ay", "2.000 KM/Ay", "10.000 KM/Yıl", "15.000 KM/Yıl", "Sınırsız"];
+const SURE_OPTIONS = ["3 Ay", "6 Ay", "12 Ay", "24 Ay", "36 Ay"];
 
 export default function EditProductPage({
   initialData,
@@ -65,15 +65,13 @@ export default function EditProductPage({
   useEffect(() => {
     const fetchVariations = async () => {
       if (product.id) {
-        // GÖRSELDEKİ İSTEĞE GÖRE GÜNCELLENEN KISIM: Belirli alanlar seçiliyor.
         const { data, error } = await supabase
           .from("variations")
-          .select("id, kilometre, sure, fiyat, status, arac_id") // Tüm alanlar (*) yerine belirli alanlar seçildi.
+          .select("id, kilometre, sure, fiyat, status, arac_id")
           .eq("arac_id", product.id);
 
         if (error) {
           console.error("Error fetching variations:", error);
-          // toast({ title: "Hata", description: "Varyasyonlar getirilirken bir sorun oluştu.", variant: "destructive" });
         } else if (data) {
           setVariations(data);
         }
@@ -83,14 +81,13 @@ export default function EditProductPage({
     if (mode === "edit" && product.id) {
       fetchVariations();
     } else if (mode === "create") {
-      // Oluşturma modunda, prop'tan gelen başlangıç varyasyonlarını kullan (genellikle boş bir dizi olur)
       setVariations(initialVariations || []);
     }
   }, [product.id, mode, initialVariations]);
 
   useEffect(() => {
     const fetchImages = async () => {
-      const { data, error } = await supabase.storage.from("images").list("", { limit: 200 }); // Örnek: limiti artırabilirsiniz.
+      const { data, error } = await supabase.storage.from("images").list("", { limit: 200 });
       if (error) {
         console.error("Error fetching images from storage:", error);
       } else if (data) {
@@ -101,12 +98,12 @@ export default function EditProductPage({
   }, []);
 
   const getPublicUrl = (path: string) => {
-    if (!path) return "/placeholder.svg"; // Eğer path yoksa placeholder göster
+    if (!path) return "/placeholder.svg";
     const { data } = supabase.storage.from("images").getPublicUrl(path);
     return data?.publicUrl || "/placeholder.svg";
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { // TextArea için de geçerli
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setProduct(prev => ({ ...prev, [name]: value }));
   };
@@ -129,12 +126,12 @@ export default function EditProductPage({
   const handleAddVariation = () => {
     const newId = crypto.randomUUID();
     setVariations(prev => [...prev, {
-      id: newId, // Client-side üretilen ID, Supabase tarafında override edilebilir veya PK olarak kullanılabilir.
+      id: newId,
       kilometre: KILOMETRE_OPTIONS[0],
       sure: SURE_OPTIONS[0],
       fiyat: 0,
       status: "Aktif",
-      arac_id: product.id // Yeni varyasyonun hangi araca ait olduğunu belirt
+      arac_id: product.id
     }]);
   };
 
@@ -145,13 +142,11 @@ export default function EditProductPage({
   const handleImageSelect = (imgName: string) => {
     if (selectingCover) {
       setProduct(prev => ({ ...prev, cover_image: imgName }));
-      setShowImageModal(false); // Kapak resmi seçilince modalı kapat
+      setShowImageModal(false);
     } else {
-      // Galeri için çoklu seçim: seçiliyse kaldır, değilse ekle
       setGalleryFiles(prev =>
         prev.includes(imgName) ? prev.filter(i => i !== imgName) : [...prev, imgName]
       );
-      // Galeri için seçim yaparken modal açık kalabilir veya "Tamam" butonu eklenebilir.
     }
   };
 
@@ -161,32 +156,31 @@ export default function EditProductPage({
       const activeVariations = variations.filter(v => v.status === "Aktif" && v.fiyat > 0);
       const lowestPrice = activeVariations.length > 0
         ? Math.min(...activeVariations.map(v => v.fiyat))
-        : product.fiyat || 0; // Eğer aktif varyasyon yoksa ürünün ana fiyatını kullan
+        : product.fiyat || 0;
 
       const productDataForSave = {
         ...product,
-        isim: product.isim.trim(), // İsim alanındaki boşlukları temizle
-        kisa_aciklama: kisaAciklama.trim(),
-        aciklama: aciklama.trim(),
+        isim: product.isim.trim(),
+        kisa_aciklama: kisaAciklama.trim(), // kisaAciklama state'inden alınıyor
+        aciklama: aciklama.trim(),       // aciklama state'inden alınıyor
         gallery_images: galleryFiles,
-        fiyat: lowestPrice, // En düşük aktif varyasyon fiyatını ana fiyat olarak ayarla
+        fiyat: lowestPrice,
       };
 
       let savedProductId = product.id;
 
       if (mode === "create") {
-        const { id, ...insertData } = productDataForSave; // 'id' alanı insert sırasında gönderilmemeli
+        const { id, ...insertData } = productDataForSave;
         const { data: inserted, error: productInsertError } = await supabase
           .from("Araclar")
           .insert(insertData)
-          .select("id") // Sadece ID'yi geri al
+          .select("id")
           .single();
 
         if (productInsertError) throw productInsertError;
         if (!inserted || !inserted.id) throw new Error("Yeni ürün ID'si alınamadı.");
         savedProductId = inserted.id;
-        // Yeni oluşturulan ürünün ID'sini state'e yansıt ki varyasyonlar doğru ID ile kaydedilsin
-        setProduct(prev => ({...prev, id: savedProductId})); 
+        setProduct(prev => ({...prev, id: savedProductId}));
 
       } else { // mode === "edit"
         const { error: productUpdateError } = await supabase
@@ -196,22 +190,19 @@ export default function EditProductPage({
         if (productUpdateError) throw productUpdateError;
       }
 
-      // Varyasyonları kaydet/güncelle (hem create hem edit modu için geçerli)
       if (savedProductId) {
-        // Önce mevcut ürünle ilişkili tüm eski varyasyonları sil (edit modunda)
-        // Create modunda bu adım atlanabilir veya product.id yerine savedProductId ile kontrol edilebilir.
         if (mode === "edit") {
             const { error: deleteError } = await supabase.from("variations").delete().eq("arac_id", savedProductId);
-            if (deleteError) console.warn("Eski varyasyonlar silinirken hata ( नजरअंदाज किया जा सकता है):", deleteError.message);
+            if (deleteError) console.warn("Eski varyasyonlar silinirken hata:", deleteError.message);
         }
 
         if (variations.length > 0) {
           const variationsToSave = variations.map(v => {
-            const { id, ...restOfVariation } = v; // Client-side ID'yi ayır
+            const { id, ...restOfVariation } = v;
             return {
               ...restOfVariation,
-              arac_id: savedProductId, // Ürünün ID'si ile ilişkilendir
-              fiyat: Number(restOfVariation.fiyat) || 0, // Fiyatın sayı olduğundan emin ol
+              arac_id: savedProductId,
+              fiyat: Number(restOfVariation.fiyat) || 0,
             };
           });
           const { error: variationsError } = await supabase.from("variations").insert(variationsToSave);
@@ -219,8 +210,6 @@ export default function EditProductPage({
         }
       }
       alert(`Ürün başarıyla ${mode === "create" ? "eklendi" : "güncellendi"} ✅`);
-      // Yönlendirme veya formu sıfırlama işlemleri burada yapılabilir.
-      // Örneğin: router.push('/dashboard/products');
 
     } catch (error: any) {
       console.error("Kaydetme sırasında hata:", error);
@@ -261,14 +250,48 @@ export default function EditProductPage({
       </div>
 
       {/* Açıklamalar */}
-      <div className="bg-white p-6 rounded-lg shadow-md space-y-4">
+      <div className="bg-white p-6 rounded-lg shadow-md space-y-6"> {/* space-y-4 yerine space-y-6 */}
         <div>
-          <label htmlFor="kisaAciklama" className="block text-sm font-medium text-gray-700 mb-1">Kısa Açıklama</label>
-          <textarea id="kisaAciklama" name="kisa_aciklama" className="mt-1 w-full border p-2 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500" rows={3} value={kisaAciklama} onChange={(e) => setKisaAciklama(e.target.value)} />
+          <label htmlFor="kisaAciklama" className="block text-sm font-medium text-gray-700 mb-1">Kısa Açıklama (HTML Destekler)</label>
+          <textarea
+            id="kisaAciklama"
+            name="kisa_aciklama" // product state'ini doğrudan güncellemek yerine kisaAciklama state'ini kullanır
+            className="mt-1 w-full border p-2 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            rows={3}
+            value={kisaAciklama} // kisaAciklama state'inden değer alır
+            onChange={(e) => setKisaAciklama(e.target.value)} // kisaAciklama state'ini günceller
+            placeholder="HTML etiketleri kullanabilirsiniz. Örneğin: <p><b>Kalın metin</b></p>"
+          />
+          {kisaAciklama.trim() && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-600 mb-1">Önizleme (Kısa Açıklama):</p>
+              <div
+                className="prose prose-sm max-w-none p-3 border rounded-md bg-gray-50 min-h-[60px] break-words"
+                dangerouslySetInnerHTML={{ __html: kisaAciklama }}
+              />
+            </div>
+          )}
         </div>
         <div>
-          <label htmlFor="aciklama" className="block text-sm font-medium text-gray-700 mb-1">Detaylı Açıklama (HTML destekler)</label>
-          <textarea id="aciklama" name="aciklama" className="mt-1 w-full border p-2 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500" rows={6} value={aciklama} onChange={(e) => setAciklama(e.target.value)} />
+          <label htmlFor="aciklama" className="block text-sm font-medium text-gray-700 mb-1">Detaylı Açıklama (HTML Destekler)</label>
+          <textarea
+            id="aciklama"
+            name="aciklama" // product state'ini doğrudan güncellemek yerine aciklama state'ini kullanır
+            className="mt-1 w-full border p-2 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            rows={6}
+            value={aciklama} // aciklama state'inden değer alır
+            onChange={(e) => setAciklama(e.target.value)} // aciklama state'ini günceller
+            placeholder="HTML etiketleri kullanabilirsiniz..."
+          />
+           {aciklama.trim() && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-600 mb-1">Önizleme (Detaylı Açıklama):</p>
+              <div
+                className="prose max-w-none p-3 border rounded-md bg-gray-50 min-h-[100px] break-words"
+                dangerouslySetInnerHTML={{ __html: aciklama }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
