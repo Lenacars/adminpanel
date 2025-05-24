@@ -53,7 +53,7 @@ export default function DashboardPage() {
         .limit(5);
 
       const { data: vehicleData } = await supabase
-        .from("araclar")
+        .from("Araclar") // ✅ Büyük harfli tablo adı
         .select("id, isim, visit_count");
 
       const { data: blogData } = await supabase
@@ -62,17 +62,15 @@ export default function DashboardPage() {
         .order("view_count", { ascending: false })
         .limit(5);
 
-      // 🔍 Konsol çıktıları
       console.log("📋 Kullanıcılar:", userData);
       console.log("🗣️ Yorumlar:", commentData);
       console.log("🚗 Araçlar:", vehicleData);
 
-      // Detaylı eşleşme kontrolü
       if (commentData && vehicleData) {
         commentData.forEach((yorum) => {
-          const matched = vehicleData.find((a) => a.id === yorum.arac_id);
+          const matched = vehicleData.find((a) => String(a.id) === String(yorum.arac_id));
           if (!matched) {
-            console.warn(`❌ Araç eşleşmedi - yorum.arac_id: ${yorum.arac_id}`);
+            console.warn(`❌ Araç eşleşmedi: yorum.arac_id = ${yorum.arac_id}`);
           } else {
             console.log(`✅ Araç eşleşti: ${matched.isim}`);
           }
@@ -90,7 +88,7 @@ export default function DashboardPage() {
 
   const enrichYorumlar = yorumlar.map((y) => {
     const user = kullanicilar.find((k) => k.auth_user_id === y.user_id);
-    const arac = araclar.find((a) => a.id === y.arac_id);
+    const arac = araclar.find((a) => String(a.id) === String(y.arac_id));
     return {
       ...y,
       userName: user ? `${user.ad} ${user.soyad}` : "Bilinmeyen Kullanıcı",
