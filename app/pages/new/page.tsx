@@ -1,18 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase"; // Supabase client (görsel URL'leri için gerekebilir)
+import { toast } from "@/hooks/use-toast";
 
-const MediaLibrary = dynamic(() => import("@/components/MediaLibrary"), { ssr: false });
+// shadcn/ui Bileşenleri
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+
+// lucide-react İkonları
+import { PlusCircle, Save, ImageIcon, ExternalLink, Settings, Info, Eye, Search, Loader2, Newspaper, Link2, ImageOff, Trash } from "lucide-react";
+
+const MediaLibrary = dynamic(() => import("@/components/MediaLibrary"), { 
+  ssr: false,
+  loading: () => <div className="flex justify-center items-center p-4"><Loader2 className="w-6 h-6 animate-spin"/> Medya Kütüphanesi Yükleniyor...</div>
+});
+
+interface PageFormState {
+  title: string;
+  slug: string;
+  html_content: string;
+  seo_title: string;
+  seo_description: string;
+  banner_image: string;
+  thumbnail_image: string;
+  menu_group: string;
+  status: "draft" | "published";
+  parent: string;
+  external_url: string;
+}
+
+interface ParentPage {
+  id: string;
+  title: string;
+}
 
 export default function NewPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<PageFormState>({
     title: "",
     slug: "",
-    html_content: "<h1>Yeni Sayfa</h1><p>Buraya HTML içerik ekleyin.</p>",
+    html_content: "<h1>Yeni Sayfa Başlığı</h1><p>Bu alana sayfanızın HTML içeriğini ekleyebilirsiniz. Başlıkları, paragrafları, listeleri ve diğer HTML elementlerini kullanabilirsiniz.</p><p>Örneğin, bir resim eklemek için: <code>&lt;img src='resim_url' alt='açıklama'&gt;</code></p>",
     seo_title: "",
     seo_description: "",
     banner_image: "",
@@ -20,30 +57,51 @@ export default function NewPage() {
     menu_group: "",
     status: "draft",
     parent: "",
-    external_url: "", // ✅ eklendi
+    external_url: "",
   });
 
-  const [parentPages, setParentPages] = useState<{ id: string; title: string }[]>([]);
+  const [parentPages, setParentPages] = useState<ParentPage[]>([]);
+  const [isSaving, setIsSaving] = useState(false); // Form gönderme durumu için
   const [showMedia, setShowMedia] = useState(false);
-  const [imageTarget, setImageTarget] = useState<"banner_image" | "thumbnail_image" | null>(null);
+  const [imageTarget, setImageTarget] = useState<keyof Pick<PageFormState, "banner_image" | "thumbnail_image"> | null>(null);
+
+  const corporateColor = "#6A3C96";
 
   useEffect(() => {
     fetchParentPages();
   }, []);
 
   const fetchParentPages = async () => {
-    const res = await fetch("/api/pages");
-    const allPages = await res.json();
-    if (Array.isArray(allPages)) {
-      setParentPages(allPages);
+    try {
+      const res = await fetch("/api/pages");
+      if (!res.ok) throw new Error("Üst sayfalar yüklenemedi.");
+      const allPages = await res.json();
+      if (Array.isArray(allPages)) {
+        // Yeni sayfa oluştururken, kendisi listede olmayacağı için filtrelemeye gerek yok.
+        setParentPages(allPages);
+      }
+    } catch (error: any) {
+        console.error("Üst sayfalar alınamadı:", error);
+        toast({title: "Hata", description: "Üst sayfa listesi yüklenirken bir sorun oluştu.", variant: "destructive"})
     }
   };
 
-  const handleChange = (key: keyof typeof form, value: string) => {
+  const generateSlug = (title: string) => {
+    return title
+      .toLowerCase()
+      .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+      .replace(/[^\w\s-]/g, '') // Remove non-word characters except spaces and hyphens
+      .replace(/\s+/g, '-')     // Replace spaces with hyphens
+      .replace(/--+/g, '-')     // Replace multiple hyphens with single
+      .replace(/^-+|-+$/g, '')  // Trim leading/trailing hyphens
+      .trim();
+  }
+
+  const handleChange = (key: keyof PageFormState, value: string | boolean) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
-      if (key === "title" && !prev.slug) {
-        updated.slug = value.toLowerCase().replace(/\s+/g, "-");
+      if (key === "title" && !prev.slug && typeof value === 'string') { // Sadece slug boşsa ve title değişiyorsa slug'ı güncelle
+        updated.slug = generateSlug(value);
       }
       return updated;
     });
@@ -51,118 +109,245 @@ export default function NewPage() {
 
   const handleImageSelect = (filename: string) => {
     if (imageTarget) {
-      handleChange(
-        imageTarget,
-        `https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/${filename}`
-      );
+      const imageUrl = filename.startsWith('http') ? filename : `https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/${filename}`;
+      handleChange(imageTarget, imageUrl);
     }
     setShowMedia(false);
+    setImageTarget(null);
   };
 
   const handleCreate = async () => {
-    const newPage = {
+    if (!form.title.trim() || !form.slug.trim()) {
+        toast({title: "Eksik Bilgi", description: "Lütfen Sayfa Başlığı ve URL (Slug) alanlarını doldurun.", variant: "destructive"});
+        return;
+    }
+    setIsSaving(true);
+    const newPageData = {
       ...form,
       published: form.status === "published",
       parent: form.parent || null,
     };
 
-    const res = await fetch("/api/pages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newPage),
-    });
+    try {
+      const res = await fetch("/api/pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newPageData),
+      });
 
-    if (res.ok) {
-      alert("Sayfa başarıyla oluşturuldu!");
-      router.push("/pages");
-    } else {
-      alert("Hata oluştu.");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: "Bilinmeyen bir sunucu hatası." }));
+        throw new Error(errorData.message || "Sayfa oluşturulurken bir hata oluştu.");
+      }
+      
+      const createdPage = await res.json(); // Oluşturulan sayfanın ID'sini almak için
+      toast({ title: "Başarılı", description: "Sayfa başarıyla oluşturuldu!" });
+      if (createdPage && createdPage.id) {
+        router.push(`/pages/edit/${createdPage.id}`); // Oluşturulan sayfanın düzenleme sayfasına yönlendir
+      } else {
+        router.push("/pages"); // Veya direkt liste sayfasına
+      }
+
+    } catch (error: any) {
+      toast({ title: "Hata", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
+  };
+  
+  const openMediaLibrary = (target: keyof Pick<PageFormState, "banner_image" | "thumbnail_image">) => {
+    setImageTarget(target);
+    setShowMedia(true);
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">Yeni Sayfa Oluştur</h1>
-
-      <div className="space-y-6 bg-white p-8 rounded shadow-md">
-        <input className="border px-3 py-2 w-full rounded" placeholder="Başlık" value={form.title} onChange={(e) => handleChange("title", e.target.value)} />
-        <input className="border px-3 py-2 w-full rounded" placeholder="Slug" value={form.slug} onChange={(e) => handleChange("slug", e.target.value)} />
-
-        {/* External URL alanı */}
-        <input
-          className="border px-3 py-2 w-full rounded"
-          placeholder="Harici Bağlantı (https://...)"
-          value={form.external_url}
-          onChange={(e) => handleChange("external_url", e.target.value)}
-        />
-        <p className="text-sm text-gray-500 -mt-4 mb-4">Dış bağlantı girersen, bu sayfaya tıklandığında kullanıcı o bağlantıya yönlendirilir.</p>
-
-        {/* HTML İçerik */}
-        <textarea
-          className="border px-3 py-2 w-full rounded min-h-[300px] font-mono text-sm"
-          placeholder="<p>HTML içeriğiniz</p>"
-          value={form.html_content}
-          onChange={(e) => handleChange("html_content", e.target.value)}
-        />
-
-        <div className="border rounded p-4 bg-gray-50 shadow-inner mb-6">
-          <label className="text-xs font-semibold text-gray-600 mb-2 block">Canlı Önizleme</label>
-          <div dangerouslySetInnerHTML={{ __html: form.html_content }} className="prose max-w-none" />
+    <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 pb-4 border-b">
+            <h1 className="text-3xl font-bold flex items-center" style={{color: corporateColor}}>
+                <PlusCircle className="w-8 h-8 mr-3"/>
+                Yeni Sayfa Oluştur
+            </h1>
+            <Button variant="outline" onClick={() => router.push('/pages')}>
+                Sayfa Listesine Dön
+            </Button>
         </div>
 
-        <h2 className="text-lg font-semibold">SEO Bilgileri</h2>
-        <input className="border px-3 py-2 w-full rounded mt-2" placeholder="SEO Başlık" value={form.seo_title} onChange={(e) => handleChange("seo_title", e.target.value)} />
-        <textarea className="border px-3 py-2 w-full rounded mt-2" rows={3} placeholder="SEO Açıklama" value={form.seo_description} onChange={(e) => handleChange("seo_description", e.target.value)} />
+        <div className="space-y-8">
+          {/* Temel Bilgiler ve Harici Bağlantı */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-xl"><Info className="w-5 h-5 mr-2" style={{color: corporateColor}} /> Temel Sayfa Bilgileri</CardTitle>
+              <CardDescription>Sayfanızın başlığını, URL yapısını ve eğer bir dış bağlantıya yönlendirecekse o adresi girin.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <Label htmlFor="title">Sayfa Başlığı *</Label>
+                <Input id="title" placeholder="Etkileyici bir başlık girin" value={form.title} onChange={(e) => handleChange("title", e.target.value)} style={{ "--ring-color": corporateColor } as React.CSSProperties}/>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="slug">URL (Slug) *</Label>
+                <Input id="slug" placeholder="sayfa-url-yapisi (otomatik oluşur)" value={form.slug} onChange={(e) => handleChange("slug", e.target.value)} style={{ "--ring-color": corporateColor } as React.CSSProperties}/>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="external_url" className="flex items-center">
+                    <ExternalLink className="w-4 h-4 mr-2 text-gray-500"/> Harici Bağlantı (Opsiyonel)
+                </Label>
+                <Input id="external_url" placeholder="https://www.orneksite.com (Doluysa içerik yerine buraya yönlenir)" value={form.external_url} onChange={(e) => handleChange("external_url", e.target.value)} style={{ "--ring-color": corporateColor } as React.CSSProperties}/>
+                <p className="text-xs text-gray-500 pt-1">Eğer bu alan doluysa, sayfa içeriği yerine kullanıcılar bu adrese yönlendirilir.</p>
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="bg-[#111] text-white p-6 rounded shadow-inner mt-4 space-y-2 text-sm font-sans">
-          <p className="text-green-400">https://lenacars.com/{form.slug}</p>
-          <p className="text-blue-400 text-lg">{form.seo_title || "LenaCars | Araç Kiralama"}</p>
-          <p className="text-gray-300">{form.seo_description || "Araç kiralama avantajlarını öğrenin."}</p>
-        </div>
+          {/* HTML İçeriği ve Önizleme */}
+          {!form.external_url && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center text-xl"><FileText className="w-5 h-5 mr-2" style={{color: corporateColor}} /> Sayfa İçeriği (HTML)</CardTitle>
+                <CardDescription>Sayfanızın ana içeriğini HTML formatında düzenleyin. Değişiklikleri canlı önizlemede görebilirsiniz.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  className="min-h-[350px] font-mono text-sm border rounded-md p-3 focus-visible:ring-1"
+                  placeholder="<p>HTML içeriği buraya...</p>"
+                  value={form.html_content}
+                  onChange={(e) => handleChange("html_content", e.target.value)}
+                  style={{ "--ring-color": corporateColor } as React.CSSProperties}
+                />
+                <div>
+                  <Label className="text-sm font-semibold text-gray-700 mb-2 block flex items-center"><Eye className="w-4 h-4 mr-2" /> Canlı Önizleme</Label>
+                  <div className="border rounded-md p-4 bg-slate-50 shadow-inner min-h-[200px]">
+                    <div dangerouslySetInnerHTML={{ __html: form.html_content }} className="prose prose-sm sm:prose max-w-none" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-        <select className="border px-3 py-2 w-full rounded mt-6" value={form.menu_group} onChange={(e) => handleChange("menu_group", e.target.value)}>
-          <option value="">Ana Menüde Gösterme</option>
-          <option value="kurumsal">Kurumsal</option>
-          <option value="kiralama">Kiralama</option>
-          <option value="ikinci-el">İkinci El</option>
-          <option value="lenacars-bilgilendiriyor">LenaCars Bilgilendiriyor</option>
-          <option value="basin-kosesi">Basın Köşesi</option>
-          <option value="elektrikli-araclar">Elektrikli Araçlar</option>
-        </select>
+          {/* SEO Bilgileri */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-xl"><Search className="w-5 h-5 mr-2" style={{color: corporateColor}} /> SEO Ayarları</CardTitle>
+              <CardDescription>Arama motorları için sayfanızın başlığını ve açıklamasını optimize edin.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="seo_title">SEO Başlığı</Label>
+                <Input id="seo_title" placeholder="Arama motorlarında görünecek başlık" value={form.seo_title} onChange={(e) => handleChange("seo_title", e.target.value)} style={{ "--ring-color": corporateColor } as React.CSSProperties}/>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="seo_description">SEO Açıklaması</Label>
+                <Textarea id="seo_description" rows={3} placeholder="Sayfanızın kısa ve etkili açıklaması (max 160 karakter)" value={form.seo_description} onChange={(e) => handleChange("seo_description", e.target.value)} className="min-h-[80px] focus-visible:ring-1" style={{ "--ring-color": corporateColor } as React.CSSProperties}/>
+              </div>
+              <div>
+                <Label className="text-sm font-semibold text-gray-700 mb-2 block">Google Önizlemesi:</Label>
+                <div className="p-4 rounded-md border bg-white dark:bg-slate-800 dark:border-slate-700">
+                  <p className="text-xs text-green-600 dark:text-green-400 truncate">https://lenacars.com/{form.slug || "sayfa-adresiniz"}</p>
+                  <p className="text-blue-600 text-lg font-medium truncate dark:text-blue-400 hover:underline cursor-pointer">{form.seo_title || form.title || "Sayfa Başlığı"}</p>
+                  <p className="text-sm text-gray-600 dark:text-slate-400 line-clamp-2">{form.seo_description || "Sayfanız için çekici bir meta açıklaması buraya gelecek. Kullanıcıların tıklamasını sağlayacak bilgiler verin."}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <select className="border px-3 py-2 w-full rounded" value={form.parent} onChange={(e) => handleChange("parent", e.target.value)}>
-          <option value="">Üst Sayfa Seç (İsteğe Bağlı)</option>
-          {parentPages.map((page) => (
-            <option key={page.id} value={page.id}>{page.title}</option>
-          ))}
-        </select>
+          {/* Görseller ve Sayfa Ayarları */}
+          <Card>
+             <CardHeader>
+                <CardTitle className="flex items-center text-xl"><Settings className="w-5 h-5 mr-2" style={{color: corporateColor}}/> Genel Ayarlar ve Görseller</CardTitle>
+                <CardDescription>Sayfanızın menüdeki yeri, durumu ve görsellerini buradan ayarlayın.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+              <div className="space-y-1.5">
+                <Label htmlFor="menu_group">Menü Grubu</Label>
+                <Select value={form.menu_group} onValueChange={(value) => handleChange("menu_group", value)}>
+                  <SelectTrigger id="menu_group" style={{ "--ring-color": corporateColor } as React.CSSProperties}><SelectValue placeholder="Menü grubu seçin..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Ana Menüde Gösterme</SelectItem>
+                    <SelectItem value="kurumsal">Kurumsal</SelectItem>
+                    <SelectItem value="kiralama">Kiralama</SelectItem>
+                    <SelectItem value="ikinci-el">İkinci El</SelectItem>
+                    <SelectItem value="lenacars-bilgilendiriyor">LenaCars Bilgilendiriyor</SelectItem>
+                    <SelectItem value="basin-kosesi">Basın Köşesi</SelectItem>
+                    <SelectItem value="elektrikli-araclar">Elektrikli Araçlar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="parent">Üst Sayfa (Hiyerarşi)</Label>
+                <Select value={form.parent} onValueChange={(value) => handleChange("parent", value)}>
+                  <SelectTrigger id="parent" style={{ "--ring-color": corporateColor } as React.CSSProperties}><SelectValue placeholder="Üst sayfa seçin (opsiyonel)..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Yok (Ana Kategori)</SelectItem>
+                    {parentPages.map((page) => (
+                      <SelectItem key={page.id} value={page.id}>{page.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        {/* Görseller */}
-        <div className="flex gap-6">
-          <div className="flex-1">
-            <label className="block text-sm mb-1 font-semibold">Banner Görseli</label>
-            {form.banner_image && <img src={form.banner_image} className="h-20 object-cover mb-2 rounded" />}
-            <button className="bg-gray-200 text-sm px-3 py-2 rounded" onClick={() => { setImageTarget("banner_image"); setShowMedia(true); }}>Görsel Seç</button>
+              <div className="space-y-2">
+                <Label className="block text-sm font-medium">Banner Görseli</Label>
+                {form.banner_image ? (
+                  <div className="relative group w-full h-40 rounded border overflow-hidden">
+                    <img src={form.banner_image} alt="Banner Görseli" className="w-full h-full object-cover" />
+                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleChange('banner_image', '')}><Trash className="h-4 w-4"/></Button>
+                  </div>
+                ) : (
+                  <div className="w-full h-40 rounded border border-dashed flex flex-col items-center justify-center bg-slate-50 text-gray-500">
+                    <ImageOff className="w-10 h-10 mb-2"/>
+                    <span>Banner Seçilmedi</span>
+                  </div>
+                )}
+                <Button variant="outline" size="sm" className="w-full" onClick={() => openMediaLibrary("banner_image")}>
+                  <ImageIcon className="w-4 h-4 mr-2" /> Banner Görseli Seç/Değiştir
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="block text-sm font-medium">Thumbnail (Önizleme) Görseli</Label>
+                 {form.thumbnail_image ? (
+                  <div className="relative group w-full h-40 rounded border overflow-hidden">
+                    <img src={form.thumbnail_image} alt="Thumbnail Görseli" className="w-full h-full object-cover" />
+                     <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleChange('thumbnail_image', '')}><Trash className="h-4 w-4"/></Button>
+                  </div>
+                ) : (
+                  <div className="w-full h-40 rounded border border-dashed flex flex-col items-center justify-center bg-slate-50 text-gray-500">
+                     <ImageOff className="w-10 h-10 mb-2"/>
+                     <span>Thumbnail Seçilmedi</span>
+                  </div>
+                )}
+                <Button variant="outline" size="sm" className="w-full" onClick={() => openMediaLibrary("thumbnail_image")}>
+                  <ImageIcon className="w-4 h-4 mr-2" /> Thumbnail Seç/Değiştir
+                </Button>
+              </div>
+              
+              <div className="md:col-span-2 flex items-center space-x-2 pt-2">
+                <Switch id="status" checked={form.status === "published"} onCheckedChange={(checked) => handleChange("status", checked ? "published" : "draft")} 
+                        className="data-[state=checked]:bg-[#6A3C96]" />
+                <Label htmlFor="status" className="cursor-pointer text-sm font-medium">
+                  {form.status === "published" ? "Sayfa Yayına Alınsın" : "Sayfa Taslak Olarak Kaydedilsin"}
+                </Label>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Separator className="my-8"/>
+
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleCreate} 
+              disabled={isSaving || !form.title.trim() || !form.slug.trim()} 
+              className="text-white hover:opacity-90 min-w-[180px] h-11 text-base" // Buton boyutu artırıldı
+              style={{ backgroundColor: isSaving || !form.title.trim() || !form.slug.trim() ? undefined : corporateColor, opacity: isSaving || !form.title.trim() || !form.slug.trim() ? 0.6 : 1 }}
+            >
+              {isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
+              {isSaving ? "Oluşturuluyor..." : "Sayfayı Oluştur"}
+            </Button>
           </div>
-
-          <div className="flex-1">
-            <label className="block text-sm mb-1 font-semibold">Thumbnail Görseli</label>
-            {form.thumbnail_image && <img src={form.thumbnail_image} className="h-20 object-cover mb-2 rounded" />}
-            <button className="bg-gray-200 text-sm px-3 py-2 rounded" onClick={() => { setImageTarget("thumbnail_image"); setShowMedia(true); }}>Görsel Seç</button>
-          </div>
         </div>
-
-        <select className="border px-3 py-2 w-full rounded" value={form.status} onChange={(e) => handleChange("status", e.target.value)}>
-          <option value="draft">Taslak</option>
-          <option value="published">Yayınlandı</option>
-        </select>
-
-        <button className="bg-blue-600 hover:bg-blue-700 text-white w-full py-3 rounded mt-8" onClick={handleCreate}>Sayfayı Oluştur</button>
       </div>
 
-      {showMedia && (
-        <MediaLibrary onSelect={handleImageSelect} onClose={() => setShowMedia(false)} />
-      )}
+      {showMedia && <MediaLibrary onSelect={handleImageSelect} onClose={() => {setShowMedia(false); setImageTarget(null);}} />}
     </div>
   );
 }
