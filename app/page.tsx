@@ -62,6 +62,23 @@ export default function DashboardPage() {
         .order("view_count", { ascending: false })
         .limit(5);
 
+      // 🔍 Konsol çıktıları
+      console.log("📋 Kullanıcılar:", userData);
+      console.log("🗣️ Yorumlar:", commentData);
+      console.log("🚗 Araçlar:", vehicleData);
+
+      // Detaylı eşleşme kontrolü
+      if (commentData && vehicleData) {
+        commentData.forEach((yorum) => {
+          const matched = vehicleData.find((a) => a.id === yorum.arac_id);
+          if (!matched) {
+            console.warn(`❌ Araç eşleşmedi - yorum.arac_id: ${yorum.arac_id}`);
+          } else {
+            console.log(`✅ Araç eşleşti: ${matched.isim}`);
+          }
+        });
+      }
+
       setKullanicilar(userData || []);
       setYorumlar(commentData || []);
       setAraclar(vehicleData || []);
