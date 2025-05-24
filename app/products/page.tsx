@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react"; // useMemo eklendi
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
-// --- Başlangıç: İkon Bileşenleri (Projenizde Heroicons gibi bir kütüphane varsa bunları kullanabilirsiniz) ---
+// --- Başlangıç: İkon Bileşenleri ---
 const SearchIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -49,11 +49,11 @@ export default function ProductsPage() {
     durum: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
+  const [perPage, setPerPage] = useState(20); // Görseldeki gibi 4'lü sıra için 12, 16, 20 gibi değerler daha iyi olabilir.
   const router = useRouter();
 
   // Kurumsal renk
-  const corporateColor = "#6A3C96"; // Mor
+  const corporateColor = "#6A3C96";
 
   useEffect(() => {
     async function checkSessionAndFetch() {
@@ -67,15 +67,14 @@ export default function ProductsPage() {
       const { data, error } = await supabase.from("Araclar").select("*").order('created_at', { ascending: false });
       if (!error) {
         setProducts(data);
-        setFiltered(data); // Başlangıçta tüm ürünleri göster
+        setFiltered(data);
       } else {
         console.error("Error fetching products:", error);
-        // Kullanıcıya hata mesajı gösterilebilir
       }
       setIsLoading(false);
     }
     checkSessionAndFetch();
-  }, [router]); // router'ı dependency array'e ekledik
+  }, [router]);
 
   useEffect(() => {
     const results = products.filter((p: any) =>
@@ -88,7 +87,7 @@ export default function ProductsPage() {
       (!search || p.isim?.toLowerCase().includes(search.toLowerCase()))
     );
     setFiltered(results);
-    setCurrentPage(1); // Filtreler değiştiğinde ilk sayfaya dön
+    setCurrentPage(1);
   }, [filters, products, search]);
 
   const totalPages = Math.ceil(filtered.length / perPage);
@@ -108,24 +107,19 @@ export default function ProductsPage() {
     if (!confirmed) return;
     const { error } = await supabase.from("Araclar").delete().eq("id", id);
     if (!error) {
-      // Hem products hem de filtered state'ini güncelle
       const updatedProducts = products.filter((item) => item.id !== id);
       setProducts(updatedProducts);
-      // Filtrelenmiş liste products'tan türediği için, products güncellenince useEffect tetiklenip filtered'ı da güncelleyecektir.
-      // Ancak anlık UI güncellemesi için filtered'ı da burada set edebiliriz:
-      // setFiltered(updatedProducts.filter(p => /* mevcut filtreler */)); // Bu satır aslında yukarıdaki useEffect ile yönetiliyor.
     } else {
       alert("Silme işlemi sırasında bir hata oluştu!");
     }
   };
 
   const buildImageUrl = (filename: string) => {
-    if (!filename) return "/placeholder-image.png"; // Varsayılan placeholder
+    if (!filename) return "/placeholder-image.png";
     const cleaned = filename.replace(/^\/+/g, "").replace(/\\\\/g, "").replace(/\/+/g, "/");
     return `https://uxnpmdeizkzvnevpceiw.supabase.co/storage/v1/object/public/images/${cleaned}`;
   };
 
-  // Dinamik marka listesi için useMemo kullanımı
   const uniqueBrands = useMemo(() => Array.from(new Set(products.map(p => p.brand).filter(Boolean))), [products]);
 
   const FilterSelect = ({ value, onChange, children, defaultOption }: { value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; children: React.ReactNode; defaultOption: string; }) => (
@@ -144,7 +138,7 @@ export default function ProductsPage() {
     </div>
   );
 
-  if (isLoading && !session) { // Session kontrol edilirken de yükleme gösterilebilir
+  if (isLoading && !session) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <p className="text-gray-700 text-xl">Yükleniyor...</p>
@@ -154,8 +148,7 @@ export default function ProductsPage() {
   
   return (
     <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-full mx-auto"> {/* max-w-7xl yerine max-w-full kullandım, gerekirse değiştirin */}
-        {/* Başlık ve Eylemler */}
+      <div className="max-w-full mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-200">
           <h1 className="text-3xl font-bold text-gray-800 mb-4 sm:mb-0">Araç Yönetimi</h1>
           <div className="flex items-center gap-3">
@@ -178,10 +171,8 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Filtreler ve Arama */}
         <div className="mb-6 p-4 bg-white rounded-lg shadow">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 items-end">
-            {/* Filtreler */}
             <FilterSelect value={filters.yakit} onChange={(e) => setFilters({ ...filters, yakit: e.target.value })} defaultOption="Tüm Yakıtlar">
               <option value="Benzin">Benzin</option> <option value="Dizel">Dizel</option> <option value="Elektrik">Elektrik</option> <option value="Hibrit">Hibrit</option> <option value="Benzin + LPG">Benzin + LPG</option>
             </FilterSelect>
@@ -200,9 +191,7 @@ export default function ProductsPage() {
             <FilterSelect value={filters.durum} onChange={(e) => setFilters({ ...filters, durum: e.target.value })} defaultOption="Tüm Durumlar">
               <option value="Sıfır">Sıfır</option> <option value="İkinci El">İkinci El</option>
             </FilterSelect>
-
-            {/* Arama */}
-            <div className="relative lg:col-span-1 xl:col-span-1"> {/* Arama kutusunu son eleman olarak genişlettim */}
+            <div className="relative lg:col-span-1 xl:col-span-1">
               <input
                 type="text"
                 className="w-full p-2.5 pl-10 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]"
@@ -215,7 +204,6 @@ export default function ProductsPage() {
           </div>
         </div>
         
-        {/* Ürün Sayısı ve Sayfa Başı Seçimi */}
         <div className="flex justify-between items-center mb-4 px-1">
           <p className="text-sm text-gray-600">
             <span className="font-semibold text-gray-800">{filtered.length}</span> araç bulundu
@@ -228,33 +216,33 @@ export default function ProductsPage() {
                           focus:outline-none focus:ring-2 focus:ring-[${corporateColor}] focus:border-[${corporateColor}]
                           appearance-none bg-white hover:border-gray-400`}
             >
-              <option value={10}>10 / sayfa</option>
+              <option value={12}>12 / sayfa</option> {/* Sayfa başına ürün sayısını güncelledim */}
+              <option value={16}>16 / sayfa</option>
               <option value={20}>20 / sayfa</option>
-              <option value={50}>50 / sayfa</option>
-              <option value={100}>100 / sayfa</option>
+              <option value={24}>24 / sayfa</option>
             </select>
             <ChevronDownIcon className="w-5 h-5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
-        {/* Ürün Kartları */}
         {isLoading ? (
           <div className="text-center py-10">
             <p className="text-gray-700 text-lg">Araçlar yükleniyor...</p>
-            {/* İsteğe bağlı: Spinner eklenebilir */}
           </div>
         ) : paginatedProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {paginatedProducts.map((item) => (
-              <div key={item.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
-                <div className="aspect-video w-full overflow-hidden"> {/* aspect-square yerine aspect-video (16:9) daha yaygın olabilir */}
+              <div key={item.id} className="group bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl"> {/* Ana kart div'ine "group" eklendi */}
+                {/* === DEĞİŞİKLİK BAŞLANGICI === */}
+                <div className="aspect-video w-full overflow-hidden bg-slate-100"> {/* Resim kapsayıcısına bg-slate-100 eklendi */}
                   <img
                     src={buildImageUrl(item.cover_image)}
                     alt={item.isim || "Araç Resmi"}
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    onError={(e) => (e.currentTarget.src = "/placeholder-image.png")} // Hata durumunda placeholder
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" {/* object-cover -> object-contain yapıldı, hover efekti group-hover'a bağlandı */}
+                    onError={(e) => (e.currentTarget.src = "/placeholder-image.png")}
                   />
                 </div>
+                {/* === DEĞİŞİKLİK SONU === */}
                 <div className="p-5 flex flex-col flex-grow">
                   <h2 className="text-xl font-semibold text-gray-800 mb-2 truncate" title={item.isim}>{item.isim || "İsimsiz Araç"}</h2>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 mb-4 flex-grow">
@@ -290,13 +278,12 @@ export default function ProductsPage() {
           </div>
         ) : (
           <div className="text-center py-10 col-span-full">
-            <img src="/no-results.svg" alt="Sonuç Bulunamadı" className="mx-auto mb-4 w-40 h-40" /> {/* Örnek SVG yolu */}
+            <img src="/no-results.svg" alt="Sonuç Bulunamadı" className="mx-auto mb-4 w-40 h-40" />
             <p className="text-xl text-gray-700">Aradığınız kriterlere uygun araç bulunamadı.</p>
             <p className="text-sm text-gray-500 mt-2">Filtrelerinizi değiştirmeyi veya aramayı sıfırlamayı deneyin.</p>
           </div>
         )}
 
-        {/* Sayfalama */}
         {totalPages > 1 && !isLoading && paginatedProducts.length > 0 && (
           <div className="mt-8 flex justify-center items-center gap-2 flex-wrap">
             <button
@@ -308,7 +295,6 @@ export default function ProductsPage() {
             </button>
             {Array.from({ length: totalPages }, (_, i) => {
               const pageNum = i + 1;
-              // Çok fazla sayfa varsa aralık gösterimi (opsiyonel)
               const showPage = Math.abs(pageNum - currentPage) < 3 || pageNum === 1 || pageNum === totalPages;
               const isEllipsis = Math.abs(pageNum - currentPage) === 3 && pageNum !== 1 && pageNum !== totalPages;
 
