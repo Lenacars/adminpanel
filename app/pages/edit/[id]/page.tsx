@@ -3,19 +3,24 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { supabase } from "@/lib/supabase"; // Supabase importu
+import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 
-// shadcn/ui Bileşenleri (Sadece Button, Card ve Label gibi temel olanlar)
+// shadcn/ui Bileşenleri
 import { Button } from "@/components/ui/button";
+// Input, Textarea ve Select HTML elemanları olarak kalacak, isteğiniz üzerine.
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label"; // shadcn/ui Label
 import { Separator } from "@/components/ui/separator";
+// Switch için HTML select kullanılıyor, isteğiniz üzerine.
 
 // lucide-react İkonları
-import { Save, Trash2, ImageIcon, ExternalLink, Settings, Info, Eye, Loader2, Newspaper, Link2, ImageOff, XCircle, UploadCloud } from "lucide-react";
+import { 
+  Save, Trash2, ImageIcon, ExternalLink, Settings, Info, Eye, Search, Loader2, Newspaper, Link2, ImageOff, Trash,
+  FileText, PlusCircle // FileText ve PlusCircle eklendi (PlusCircle header için)
+} from "lucide-react";
 
-// MediaLibrary'nin yüklenme durumu için basit bir bileşen
+
 const MediaLibraryLoading = () => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]">
     <div className="bg-white p-6 rounded-lg shadow-xl flex items-center">
@@ -30,7 +35,6 @@ const MediaLibrary = dynamic(() => import("@/components/MediaLibrary"), {
   loading: () => <MediaLibraryLoading />
 });
 
-// Tip tanımları (sizin kodunuzdaki gibi)
 interface PageFormState {
   title: string;
   slug: string;
@@ -40,7 +44,7 @@ interface PageFormState {
   banner_image: string;
   thumbnail_image: string;
   menu_group: string;
-  status: "draft" | "published"; // string yerine union type
+  status: "draft" | "published";
   parent: string;
   external_url: string;
 }
@@ -69,27 +73,27 @@ export default function EditPage() {
   });
 
   const [parentPages, setParentPages] = useState<ParentPage[]>([]);
-  const [loading, setLoading] = useState(true); // Sayfa verisi yükleme durumu
-  const [isSaving, setIsSaving] = useState(false); // Kaydetme/güncelleme durumu
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [showMedia, setShowMedia] = useState(false);
   const [imageTarget, setImageTarget] = useState<keyof Pick<PageFormState, "banner_image" | "thumbnail_image"> | null>(null);
 
   const corporateColor = "#6A3C96";
   const corporateColorDarker = "#522d73";
 
-  // Form elemanları için ortak Tailwind sınıfları
   const inputClassName = "border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 w-full rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-slate-900";
-  const selectClassName = `${inputClassName} appearance-none`; // Select için de benzer stil
+  const selectClassName = `${inputClassName} appearance-none`;
 
   const fetchPageAndParents = useCallback(async () => {
-    if (!id || id === 'new') { // 'new' ID'si için veri çekme (EditPage varsayılanı, NewPage kendi mantığını kullanır)
+    // ... (Bu fonksiyon NewPage'deki ile aynı, sadece id kontrolü farklı) ...
+    if (!id || id === 'new') { 
         setLoading(false);
-        // Gerekirse NewPage'den gelen initialData burada kullanılabilir, ama bu EditPage olduğu için id'ye göre çekiyoruz.
-        // Eğer id 'new' ise, bu sayfanın çağrılmaması veya farklı bir mantık izlenmesi gerekebilir.
-        // Şimdilik id yoksa veya 'new' ise erken çıkıyoruz.
         if (id === 'new') {
             toast({title: "Uyarı", description: "Yeni sayfa oluşturmak için lütfen ilgili menüyü kullanın.", variant: "default"});
-            router.push("/pages/new"); // Veya uygun bir sayfaya yönlendir
+            router.push("/pages/new");
+        } else { // ID yoksa veya geçersizse (ama 'new' değilse) listeye yönlendir.
+            toast({title: "Hata", description: "Geçersiz sayfa ID'si.", variant: "destructive"});
+            router.push("/pages");
         }
         return;
     }
@@ -97,7 +101,7 @@ export default function EditPage() {
     try {
       const [pageRes, parentPagesRes] = await Promise.all([
         fetch(`/api/pages/${id}`),
-        fetch("/api/pages")
+        fetch("/api/pages") 
       ]);
 
       if (!pageRes.ok) {
@@ -122,7 +126,9 @@ export default function EditPage() {
       if (parentPagesRes.ok) {
         const allPages = await parentPagesRes.json();
         if (Array.isArray(allPages)) {
-          const filtered = allPages.filter((p) => p.id !== id);
+          const filtered = allPages.filter(
+            (p) => p.id !== id 
+          );
           setParentPages(filtered);
         }
       } else {
@@ -132,7 +138,7 @@ export default function EditPage() {
     } catch (error: any) {
       console.error("Veri alım hatası:", error);
       toast({ title: "Veri Alım Hatası", description: error.message, variant: "destructive" });
-      router.push("/pages"); // Hata durumunda listeye yönlendir
+      router.push("/pages"); 
     } finally {
       setLoading(false);
     }
@@ -141,6 +147,7 @@ export default function EditPage() {
   useEffect(() => {
     fetchPageAndParents();
   }, [fetchPageAndParents]);
+
 
   const handleChange = (key: keyof PageFormState, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -190,7 +197,7 @@ export default function EditPage() {
 
   const handleDelete = async () => {
     if (!window.confirm(`"${form.title}" başlıklı sayfayı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
-    setIsSaving(true); // Silme işlemi sırasında da butonu disable edebiliriz
+    setIsSaving(true);
     try {
       const res = await fetch(`/api/pages/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -205,21 +212,23 @@ export default function EditPage() {
       setIsSaving(false);
     }
   };
-
+  
   const openMediaLibrary = (target: keyof Pick<PageFormState, "banner_image" | "thumbnail_image">) => {
     setImageTarget(target);
     setShowMedia(true);
   };
 
-
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
-        <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: corporateColor }} />
-        <p className="text-lg font-medium text-gray-700 dark:text-slate-300">Sayfa Bilgileri Yükleniyor...</p>
-      </div>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
+            <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: corporateColor }} />
+            <p className="text-lg font-medium text-gray-700 dark:text-slate-300">Sayfa Bilgileri Yükleniyor...</p>
+        </div>
     );
   }
+  
+  // Eğer id yoksa veya form.title boşsa (veri çekilemediyse) erken çıkış veya farklı bir UI gösterilebilir.
+  // Ancak fetchPageAndParents zaten hata durumunda yönlendirme yapıyor.
 
   return (
     <div className="p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-slate-900 min-h-screen">
@@ -227,7 +236,7 @@ export default function EditPage() {
         <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 pb-4 border-b dark:border-slate-700">
             <h1 className="text-3xl font-bold flex items-center text-gray-800 dark:text-slate-100">
                 <Newspaper className="w-8 h-8 mr-3" style={{color: corporateColor}}/>
-                Sayfa Düzenle
+                Sayfa Düzenle: <span className="ml-2 text-gray-600 dark:text-slate-300 truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">{form.title || "Başlıksız"}</span>
             </h1>
             <div className="flex gap-2 mt-4 sm:mt-0">
                 <Button variant="outline" onClick={() => router.push('/pages/new')} className="dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700">
@@ -244,7 +253,7 @@ export default function EditPage() {
           <Card className="dark:bg-slate-850 dark:border-slate-700">
             <CardHeader>
               <CardTitle className="flex items-center text-xl font-semibold dark:text-slate-100"><Info className="w-5 h-5 mr-2" style={{color: corporateColor}} /> Temel Sayfa Bilgileri</CardTitle>
-              <CardDescription className="dark:text-slate-400">Sayfanızın başlığını, URL yapısını (slug) ve harici bağlantısını girin.</CardDescription>
+              <CardDescription className="dark:text-slate-400">Sayfanızın başlığını, URL yapısını (slug) ve harici bağlantısını düzenleyin.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
@@ -267,7 +276,9 @@ export default function EditPage() {
           {!form.external_url && (
             <Card className="dark:bg-slate-850 dark:border-slate-700">
               <CardHeader>
-                <CardTitle className="flex items-center text-xl font-semibold dark:text-slate-100"><FileText className="w-5 h-5 mr-2" style={{color: corporateColor}} /> Sayfa İçeriği (HTML)</CardTitle>
+                <CardTitle className="flex items-center text-xl font-semibold dark:text-slate-100">
+                  <FileText className="w-5 h-5 mr-2" style={{color: corporateColor}} /> Sayfa İçeriği (HTML) {/* FileText burada kullanılıyor */}
+                </CardTitle>
                 <CardDescription className="dark:text-slate-400">Sayfanızın ana içeriğini HTML formatında düzenleyin.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -323,14 +334,13 @@ export default function EditPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="menu_group" className="font-medium dark:text-slate-300">Menü Grubu</Label>
                 <select id="menu_group" value={form.menu_group} onChange={(e) => handleChange("menu_group", e.target.value)} className={`${selectClassName} focus:ring-[${corporateColor}]`}>
-                  <option value="">Ana Menüde Gösterme</option>
-                  <option value="kurumsal">Kurumsal</option>
-                  <option value="kiralama">Kiralama</option>
-                  {/* Diğer options */}
-                  <option value="ikinci-el">İkinci El</option>
-                  <option value="lenacars-bilgilendiriyor">LenaCars Bilgilendiriyor</option>
-                  <option value="basin-kosesi">Basın Köşesi</option>
-                  <option value="elektrikli-araclar">Elektrikli Araçlar</option>
+                    <option value="">Ana Menüde Gösterme</option>
+                    <option value="kurumsal">Kurumsal</option>
+                    <option value="kiralama">Kiralama</option>
+                    <option value="ikinci-el">İkinci El</option>
+                    <option value="lenacars-bilgilendiriyor">LenaCars Bilgilendiriyor</option>
+                    <option value="basin-kosesi">Basın Köşesi</option>
+                    <option value="elektrikli-araclar">Elektrikli Araçlar</option>
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -379,7 +389,7 @@ export default function EditPage() {
               
               <div className="md:col-span-2 flex items-center space-x-3 pt-2">
                 <Label htmlFor="status" className="cursor-pointer text-sm font-medium dark:text-slate-300 whitespace-nowrap">Sayfa Durumu:</Label>
-                <select id="status" value={form.status} onChange={(e) => handleChange("status", e.target.value as "draft" | "published")} className={`${selectClassName} focus:ring-[${corporateColor}] w-auto`}>
+                 <select id="status" value={form.status} onChange={(e) => handleChange("status", e.target.value as "draft" | "published")} className={`${selectClassName} focus:ring-[${corporateColor}] w-auto`}>
                   <option value="draft">Taslak</option>
                   <option value="published">Yayında</option>
                 </select>
@@ -397,7 +407,7 @@ export default function EditPage() {
             <Button 
               onClick={handleUpdate} 
               disabled={isSaving || !form.title.trim()} 
-              className="w-full sm:w-auto text-white hover:opacity-90 order-1 sm:order-2"
+              className="w-full sm:w-auto text-white hover:opacity-90 order-1 sm:order-2" // Buton sırasını değiştirdim (opsiyonel)
               style={{ backgroundColor: isSaving || !form.title.trim() ? undefined : corporateColor, opacity: isSaving || !form.title.trim() ? 0.6 : 1 }}
             >
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
