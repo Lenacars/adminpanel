@@ -1,24 +1,24 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react"; // useMemo eklendi
+import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 // shadcn/ui Bileşenleri
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // AvatarImage kaldırıldı, sadece Fallback
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 
-// lucide-react İkonları (Temel ve güvenli ikonlar)
-import { 
-  LayoutDashboard, Users, MessageSquare, Car, Newspaper, 
-  ArrowRight, Loader2, AlertTriangle, Inbox, Star // Star (basit gösterim için)
+// lucide-react İkonları
+import {
+  LayoutDashboard, Users, MessageSquare, Car, Newspaper,
+  ArrowRight, Loader2, AlertTriangle, Inbox, Star
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-// Tipler (Sizin kodunuzdaki gibi)
+// Tipler
 interface Kullanici {
   id: string;
   ad: string;
@@ -57,8 +57,9 @@ interface EnrichedYorum extends Yorum {
 
 export default function DashboardPage() {
   const [kullanicilar, setKullanicilar] = useState<Kullanici[]>([]);
-  const [yorumlar, setYorumlarState] = useState<Yorum[]>([]); // İsim değişikliği
-  const [araclar, setAraclar] = useState<Arac[]>([]);
+  const [yorumlar, setYorumlarState] = useState<Yorum[]>([]);
+  const [tumAraclar, setTumAraclar] = useState<Arac[]>([]); // Tüm araçlar için yeni state
+  const [topAraclar, setTopAraclar] = useState<Arac[]>([]); // Popüler araçlar için (eski araclar state'i)
   const [bloglar, setBloglar] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,12 +71,11 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        // Veri çekme işlemleri (sizin kodunuzdaki gibi)
         const { data: userData, error: userError } = await supabase
           .from("kullanicilar")
           .select("id, ad, soyad, email, created_at, auth_user_id")
-          .order("created_at", { ascending: false }) // Son kullanıcılar için sıralama
-          .limit(5); // Sadece son 5 kullanıcı
+          .order("created_at", { ascending: false })
+          .limit(5);
 
         const { data: commentData, error: commentError } = await supabase
           .from("yorumlar")
@@ -83,27 +83,34 @@ export default function DashboardPage() {
           .order("created_at", { ascending: false })
           .limit(5);
 
-        const { data: vehicleData, error: vehicleError } = await supabase
+        // Tüm araçları çek (yorumları zenginleştirmek için)
+        const { data: allVehicleData, error: allVehicleError } = await supabase
+          .from("Araclar")
+          .select("id, isim, visit_count"); // Genellikle tüm araçlar için visit_count'a ihtiyaç olmayabilir, sadece id ve isim yeterli olabilir.
+
+        // En popüler 5 aracı çek (popüler araçlar kartı için)
+        const { data: topVehicleData, error: topVehicleError } = await supabase
           .from("Araclar")
           .select("id, isim, visit_count")
-          .order("visit_count", { ascending: false }) // Popüler araçlar için sıralama
-          .limit(5); // Sadece en popüler 5 araç
+          .order("visit_count", { ascending: false })
+          .limit(5);
 
         const { data: blogData, error: blogError } = await supabase
           .from("bloglar")
           .select("id, title, view_count")
           .order("view_count", { ascending: false })
           .limit(5);
-        
-        // Hata kontrolü
+
         if (userError) throw new Error(`Kullanıcılar: ${userError.message}`);
         if (commentError) throw new Error(`Yorumlar: ${commentError.message}`);
-        if (vehicleError) throw new Error(`Araçlar: ${vehicleError.message}`);
+        if (allVehicleError) throw new Error(`Tüm Araçlar: ${allVehicleError.message}`);
+        if (topVehicleError) throw new Error(`Popüler Araçlar: ${topVehicleError.message}`);
         if (blogError) throw new Error(`Bloglar: ${blogError.message}`);
 
         setKullanicilar(userData || []);
-        setYorumlarState(commentData || []); // State adı güncellendi
-        setAraclar(vehicleData || []);
+        setYorumlarState(commentData || []);
+        setTumAraclar(allVehicleData || []);
+        setTopAraclar(topVehicleData || []);
         setBloglar(blogData || []);
 
       } catch (err: any) {
@@ -118,17 +125,11 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  // enrichYorumlar fonksiyonu (sizin kodunuzdaki gibi, sadece yorumlar state adı güncellendi)
   const enrichYorumlar = useMemo((): EnrichedYorum[] => {
     return yorumlar.map((y) => {
       const user = kullanicilar.find((k) => k.auth_user_id === y.user_id);
-      // ÖNEMLİ: Popüler araçlar listesi (araclar state'i) TÜM araçları içermiyorsa,
-      // buradaki arac.find doğru aracı bulamayabilir.
-      // Yorumlardaki araç ID'sine sahip aracın `araclar` state'inde olması gerekir.
-      // Eğer `araclar` state'i sadece top 5'i içeriyorsa, yorumlardaki araç isimleri için
-      // ya tüm araçları çeken ayrı bir state ya da yorumları çekerken join yapmanız gerekir.
-      // Şimdilik mevcut mantığınızı koruyorum.
-      const arac = araclar.find((a) => String(a.id) === String(y.arac_id)); 
+      // Araç bilgisini tumAraclar state'inden al
+      const arac = tumAraclar.find((a) => String(a.id) === String(y.arac_id));
       return {
         ...y,
         userName: user ? `${user.ad} ${user.soyad}` : "Bilinmeyen Kullanıcı",
@@ -136,7 +137,7 @@ export default function DashboardPage() {
         vehicleName: arac ? arac.isim : "Bilinmeyen Araç",
       };
     });
-  }, [yorumlar, kullanicilar, araclar]); // araclar dependency eklendi
+  }, [yorumlar, kullanicilar, tumAraclar]); // Bağımlılıklara tumAraclar eklendi
 
   const CardSkeleton = () => (
     <Card className="shadow-sm dark:bg-slate-850 dark:border-slate-700">
@@ -254,7 +255,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* EN ÇOK ZİYARET EDİLEN ARAÇLAR */}
+        {/* EN ÇOK ZİYARET EDİLEN ARAÇLAR (Popüler Araçlar) */}
         <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700 flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
@@ -265,7 +266,8 @@ export default function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="pt-1 space-y-1.5 flex-grow">
-            {araclar.length > 0 ? araclar.map((a) => (
+            {/* topAraclar state'i kullanılıyor */}
+            {topAraclar.length > 0 ? topAraclar.map((a) => (
               <div key={a.id} className="flex items-center justify-between py-1 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
                 <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={a.isim}>{a.isim}</p>
                 <p className="text-xs text-muted-foreground dark:text-slate-400 whitespace-nowrap">{a.visit_count} Görüntülenme</p>
