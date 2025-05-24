@@ -3,21 +3,23 @@
 import React, { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase"; // Gerekirse (MediaLibrary URL'leri için)
+import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 
 // shadcn/ui Bileşenleri
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // shadcn/ui Input
-import { Textarea } from "@/components/ui/textarea"; // shadcn/ui Textarea
-import { Label } from "@/components/ui/label"; // shadcn/ui Label
+import { Input } from "@/components/ui/input"; 
+import { Textarea } from "@/components/ui/textarea"; 
+import { Label } from "@/components/ui/label"; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-// Select için shadcn/ui kullanmayıp HTML select'i stilize edeceğiz, sorun çıkmaması adına.
-// İsterseniz shadcn/ui Select'e geçirebiliriz.
+// Select için HTML select kullanmaya devam ediyoruz, isteğiniz üzerine.
 
 // lucide-react İkonları
-import { PlusCircle, Save, ImageIcon, ExternalLink, Settings, Info, Eye, Search, Loader2, Newspaper, Link2, ImageOff, Trash } from "lucide-react";
+import { 
+  PlusCircle, Save, ImageIcon, ExternalLink, Settings, Info, Eye, Search, Loader2, Newspaper, Link2, ImageOff, Trash,
+  FileText // FileText ikonu buraya eklendi!
+} from "lucide-react";
 
 const MediaLibraryLoading = () => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]">
@@ -58,7 +60,7 @@ export default function NewPage() {
   const [form, setForm] = useState<PageFormState>({
     title: "",
     slug: "",
-    html_content: "<h1>Yeni Sayfa Başlığı</h1><p>Bu alana sayfanızın HTML içeriğini ekleyebilirsiniz.</p>",
+    html_content: "<h1>Yeni Sayfa Başlığı</h1><p>Bu alana sayfanızın HTML içeriğini ekleyebilirsiniz. Başlıkları, paragrafları, listeleri ve diğer HTML elementlerini kullanabilirsiniz.</p><p>Örneğin, bir resim eklemek için: <code>&lt;img src='resim_url' alt='açıklama'&gt;</code></p>",
     seo_title: "",
     seo_description: "",
     banner_image: "",
@@ -78,7 +80,7 @@ export default function NewPage() {
   const corporateColorDarker = "#522d73";
   
   const inputClassName = "border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 w-full rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-slate-900";
-  const selectClassName = `${inputClassName} appearance-none`;
+  const selectClassName = `${inputClassName} appearance-none`; // HTML select için
 
   useEffect(() => {
     fetchParentPages();
@@ -112,10 +114,9 @@ export default function NewPage() {
   const handleChange = (key: keyof PageFormState, value: string | boolean) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
-      if (key === "title" && typeof value === 'string') { 
-        // Kullanıcı slug'ı manuel olarak değiştirmediyse veya slug boşsa title'dan slug üret.
-        // Bu kontrol, kullanıcının özel bir slug girmesine olanak tanır.
-        if (!prev.slug || prev.slug === generateSlug(prev.title)) {
+      // Otomatik slug oluşturma (sadece title değiştiğinde ve slug alanı kullanıcı tarafından manuel olarak doldurulmadıysa veya boşsa)
+      if (key === "title" && typeof value === 'string') {
+        if (!prev.slug || prev.slug === generateSlug(prev.title)) { // Eğer slug boşsa VEYA slug önceki title'dan otomatik üretilmişse
             updated.slug = generateSlug(value);
         }
       }
@@ -215,10 +216,12 @@ export default function NewPage() {
           </Card>
 
           {/* HTML İçeriği (Harici bağlantı yoksa) */}
-          {!form.external_url && (
+          {!form.external_url && ( // Sadece harici bağlantı yoksa göster
             <Card className="dark:bg-slate-850 dark:border-slate-700">
               <CardHeader>
-                <CardTitle className="flex items-center text-xl font-semibold dark:text-slate-100"><FileText className="w-5 h-5 mr-2" style={{color: corporateColor}} /> Sayfa İçeriği (HTML)</CardTitle>
+                <CardTitle className="flex items-center text-xl font-semibold dark:text-slate-100">
+                  <FileText className="w-5 h-5 mr-2" style={{color: corporateColor}} /> Sayfa İçeriği (HTML) {/* FileText burada kullanılıyor */}
+                </CardTitle>
                 <CardDescription className="dark:text-slate-400">Sayfanızın ana içeriğini HTML formatında oluşturun.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
