@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { toast } from "@/hooks/use-toast"; // shadcn/ui toast varsayılıyor
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; // Input bileşeni import edildi
 import { 
-  ChevronDown, ChevronUp, Star, Trash2, Loader2, MessageSquareWarning // Gerekli ikonlar
+  ChevronDown, ChevronUp, Star, Trash2, Loader2, MessageSquareWarning, Search // Search ikonu import edildi
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Card bileşenlerini ekledim
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Yıldız Puanlama Bileşeni
 const StarRating = ({ rating, totalStars = 5 }: { rating: number; totalStars?: number }) => {
@@ -30,8 +31,8 @@ interface Yorum {
   puan: number;
   created_at: string;
   user_id: string;
-  kullanici?: { // Kullanıcı bilgileri null olabilir
-    ad?: string | null; // ad ve soyad da null olabilir
+  kullanici?: {
+    ad?: string | null;
     soyad?: string | null;
     email?: string | null;
   } | null;
@@ -41,6 +42,7 @@ export default function YorumlarPage() {
   const [yorumlar, setYorumlar] = useState<Yorum[]>([]);
   const [loading, setLoading] = useState(true);
   const [openUser, setOpenUser] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState(""); // Arama için state eklendi
 
   // Kurumsal Renkler
   const corporateColor = "#6A3C96";
@@ -50,7 +52,7 @@ export default function YorumlarPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("yorumlar")
-      .select("*, kullanici:kullanicilar(ad,soyad,email)") // user_id üzerinden join
+      .select("*, kullanici:kullanicilar(ad,soyad,email)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -78,9 +80,30 @@ export default function YorumlarPage() {
     fetchYorumlar();
   }, []);
 
+  // Yorumları arama terimine göre filtrele
+  const filteredYorumlar = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return yorumlar;
+    }
+    const lowercasedQuery = searchQuery.toLowerCase().trim();
+    return yorumlar.filter(yorum => {
+      const ad = yorum.kullanici?.ad?.toLowerCase() || "";
+      const soyad = yorum.kullanici?.soyad?.toLowerCase() || "";
+      const email = yorum.kullanici?.email?.toLowerCase() || "";
+      const fullName = `${ad} ${soyad}`.trim();
+
+      return (
+        ad.includes(lowercasedQuery) ||
+        soyad.includes(lowercasedQuery) ||
+        fullName.includes(lowercasedQuery) ||
+        email.includes(lowercasedQuery)
+      );
+    });
+  }, [yorumlar, searchQuery]);
+
+  // Filtrelenmiş yorumları kullanıcıya göre grupla
   const groupedByKullanici = useMemo(() => {
-    return yorumlar.reduce((acc, yorum) => {
-      // Kullanıcı bilgisi yoksa veya user_id yoksa "Bilinmeyen Kullanıcı" olarak grupla
+    return filteredYorumlar.reduce((acc, yorum) => {
       const kullaniciKey = yorum.kullanici && yorum.user_id 
         ? yorum.user_id 
         : "bilinmeyen_kullanici";
@@ -92,14 +115,14 @@ export default function YorumlarPage() {
       if (!acc[kullaniciKey]) {
         acc[kullaniciKey] = { 
           displayName: displayName, 
-          kullaniciDetay: yorum.kullanici, // Orijinal kullanıcı objesini sakla
+          kullaniciDetay: yorum.kullanici,
           yorumlar: [] 
         };
       }
       acc[kullaniciKey].yorumlar.push(yorum);
       return acc;
     }, {} as Record<string, { displayName: string; kullaniciDetay?: Yorum["kullanici"]; yorumlar: Yorum[] }>);
-  }, [yorumlar]);
+  }, [filteredYorumlar]);
 
 
   if (loading) {
@@ -115,17 +138,32 @@ export default function YorumlarPage() {
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-gray-50 min-h-screen">
       <Card className="shadow-lg">
-        <CardHeader className="border-b">
-          <CardTitle className="text-2xl font-bold" style={{ color: corporateColor }}>
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
+          <CardTitle className="text-2xl font-bold whitespace-nowrap" style={{ color: corporateColor }}>
             Müşteri Yorumları
           </CardTitle>
+          <div className="relative w-full md:w-80"> {/* Arama kutusu için sarmalayıcı */}
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="Müşteri adı veya e-posta ile ara..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-10 text-sm focus-visible:ring-1" // shadcn/ui Input focus stili
+              style={{ "--ring-color": corporateColor } as React.CSSProperties} // Focus rengi için
+            />
+          </div>
         </CardHeader>
         <CardContent className="pt-6">
           {Object.keys(groupedByKullanici).length === 0 ? (
             <div className="text-center py-10">
               <MessageSquareWarning className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">Henüz Yorum Bulunmamaktadır</h3>
-              <p className="text-sm text-gray-500">Sistemde kayıtlı müşteri yorumu yok.</p>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                {searchQuery ? "Aramanızla Eşleşen Yorum Bulunamadı" : "Henüz Yorum Bulunmamaktadır"}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {searchQuery ? "Lütfen arama teriminizi değiştirin veya tüm yorumları listelemek için aramayı temizleyin." : "Sistemde kayıtlı müşteri yorumu yok."}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -140,20 +178,20 @@ export default function YorumlarPage() {
                     style={openUser === key ? { backgroundColor: corporateColor } : {}}
                     onClick={() => setOpenUser(openUser === key ? null : key)}
                   >
-                    <span className="truncate">
+                    <span className="truncate mr-2"> {/* truncate ve mr-2 eklendi */}
                       {group.displayName} 
                       <span className="text-xs font-normal opacity-80 ml-2">({group.yorumlar.length} yorum)</span>
                     </span>
-                    {openUser === key ? <ChevronUp className="w-5 h-5 flex-shrink-0 ml-2" /> : <ChevronDown className="w-5 h-5 flex-shrink-0 ml-2" />}
+                    {openUser === key ? <ChevronUp className="w-5 h-5 flex-shrink-0" /> : <ChevronDown className="w-5 h-5 flex-shrink-0" />} {/* ml-2 kaldırıldı, flex-shrink-0 eklendi */}
                   </button>
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out bg-white
-                               ${openUser === key ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}
+                               ${openUser === key ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`} // max-h artırıldı
                   >
-                    {openUser === key && ( // max-h-0 durumunda render etmemek için
+                    {openUser === key && (
                         <div className="divide-y divide-gray-100 p-2 sm:p-4">
                         {group.yorumlar.map((y) => (
-                            <div key={y.id} className="py-4 px-2 hover:bg-slate-50 rounded">
+                            <div key={y.id} className="py-4 px-2 hover:bg-slate-50 rounded transition-colors duration-100">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-1.5">
                                 <StarRating rating={y.puan} />
                                 <span className="text-xs text-gray-500 mt-1 sm:mt-0 whitespace-nowrap">
