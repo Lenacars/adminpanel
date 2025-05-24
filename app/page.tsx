@@ -127,7 +127,7 @@ export default function DashboardPage() {
 
   const enrichYorumlar = useMemo((): EnrichedYorum[] => {
     return yorumlar.map((y) => {
-      const user = kullanicilar.find((k) => k.auth_user_id === y.user_id);
+      const user = kullanicilar.find((k) => String(k.auth_user_id) === String(y.user_id));
       // Araç bilgisini tumAraclar state'inden al
       const arac = tumAraclar.find((a) => String(a.id) === String(y.arac_id));
       return {
