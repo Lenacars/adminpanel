@@ -5,22 +5,18 @@ import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
-// shadcn/ui Bileşenleri
-import { Button } from "@/components/ui/button";
+// Mevcut shadcn/ui importlarınız
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator"; // Separator importu eklendi!
-
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator"; // Düzeltme 1: Separator import edildi
 
 // lucide-react İkonları
-import { 
-    Save, Trash2, ImageIcon, Loader2, ImageOff, FileText, Eye, Edit as EditIcon, Newspaper, AlertTriangle, PlusCircle // PlusCircle eklendi (header için)
-} from "lucide-react";
+import { Save, Trash2, ImageIcon, Loader2, ImageOff, Eye, Edit as EditIcon, Newspaper, PlusCircle, LinkIcon, AlertTriangle } from "lucide-react"; // Düzeltme 3: AlertTriangle eklendi
 
+// MediaLibraryModal
 const MediaLibraryLoading = () => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]">
     <div className="bg-white p-6 rounded-lg shadow-xl flex items-center dark:bg-slate-800">
@@ -29,117 +25,143 @@ const MediaLibraryLoading = () => (
     </div>
   </div>
 );
-
-const MediaLibraryModal = dynamic(() => import("@/components/MediaLibraryModal"), { 
+const MediaLibraryModal = dynamic(() => import("@/components/MediaLibraryModal"), {
   ssr: false,
-  loading: () => <MediaLibraryLoading /> 
+  loading: () => <MediaLibraryLoading />
 });
 
-interface BlogFormState {
+interface BlogForm {
+  id?: string;
   title: string;
   slug: string;
-  content: string;
+  content: string; // HTML içerik için
   seo_title: string;
   seo_description: string;
   thumbnail_image: string;
   published: boolean;
-  id?: string;
   created_at?: string;
+  html_content?: string;
+  banner_image?: string;
+  menu_group?: string;
+  status?: "draft" | "published";
+  parent?: string;
+  external_url?: string;
 }
 
-const initialBlogFormState: Omit<BlogFormState, 'id' | 'created_at'> = { // Omit id and created_at for pure initial state
-  title: "",
-  slug: "",
-  content: "<h1>Blog İçeriği</h1><p>HTML içeriğinizi buraya girin.</p>",
-  seo_title: "",
-  seo_description: "",
-  thumbnail_image: "",
-  published: false,
+const initialBlogFormState: BlogForm = {
+    title: "",
+    slug: "",
+    content: "<h1>Blog İçeriği</h1><p>HTML içeriğinizi buraya girin.</p>",
+    seo_title: "",
+    seo_description: "",
+    thumbnail_image: "",
+    published: false,
+    html_content: "<h1>Blog İçeriği</h1><p>HTML içeriğinizi buraya girin.</p>",
+    banner_image: "",
+    menu_group: "",
+    status: "draft",
+    parent: "",
+    external_url: "",
 };
+
 
 export default function EditBlogPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  
-  const [form, setForm] = useState<BlogFormState | null>(null);
-  const [loadingInitialData, setLoadingInitialData] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState<BlogForm | null>(null);
   const [showMedia, setShowMedia] = useState(false);
-  const [errorLoading, setErrorLoading] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [imageTarget, setImageTarget] = useState<"thumbnail_image" | null>(null);
 
   const corporateColor = "#6A3C96";
+  const inputClassName = `border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900/50 px-3 py-2 w-full rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-offset-0 focus:ring-[${corporateColor}] dark:text-slate-100`;
+  // const selectClassName = `${inputClassName} appearance-none`; // HTML select için (kullanılmıyorsa kaldırılabilir)
 
-  const fetchBlogData = useCallback(async () => {
+  const fetchBlog = useCallback(async () => {
     if (!id) {
-        setErrorLoading("Blog ID bulunamadı.");
-        setLoadingInitialData(false);
-        router.push("/blogs"); 
-        return;
+      toast({ title: "Hata", description: "Blog ID bulunamadı.", variant: "destructive" });
+      setIsLoadingData(false);
+      router.push("/blogs");
+      return;
     }
-    setLoadingInitialData(true);
-    setErrorLoading(null);
-    try {
-        const { data, error } = await supabase.from("bloglar").select("*").eq("id", id).single();
-        if (error) throw error;
-        if (data) {
-            setForm({
-                id: data.id,
-                title: data.title || "",
-                slug: data.slug || "",
-                content: data.content || initialBlogFormState.content,
-                seo_title: data.seo_title || "",
-                seo_description: data.seo_description || "",
-                thumbnail_image: data.thumbnail_image || "",
-                published: data.published || false,
-                created_at: data.created_at,
-            });
-        } else {
-            throw new Error("Blog yazısı bulunamadı.");
-        }
-    } catch (error: any) {
-        console.error("Blog verisi alınamadı:", error);
-        setErrorLoading(error.message || "Blog verisi yüklenirken bir hata oluştu.");
-        toast({ title: "Hata", description: error.message || "Blog verisi yüklenemedi.", variant: "destructive" });
-    } finally {
-        setLoadingInitialData(false);
+    setIsLoadingData(true);
+    const { data, error } = await supabase.from("bloglar").select("*").eq("id", id).single();
+    
+    if (error || !data) {
+      toast({ title: "Hata", description: error?.message || "Blog verisi alınamadı.", variant: "destructive" });
+      setIsLoadingData(false);
+      router.push("/blogs");
+      return;
     }
+    setForm({
+        id: data.id,
+        title: data.title || "",
+        slug: data.slug || "",
+        content: data.content || initialBlogFormState.content,
+        seo_title: data.seo_title || "",
+        seo_description: data.seo_description || "",
+        thumbnail_image: data.thumbnail_image || "",
+        published: data.published || false,
+        created_at: data.created_at,
+        html_content: data.content || initialBlogFormState.content,
+        banner_image: data.banner_image || "",
+        menu_group: data.menu_group || "",
+        status: data.published ? "published" : "draft",
+        parent: data.parent || "",
+        external_url: data.external_url || "",
+    });
+    setIsLoadingData(false);
   }, [id, router]);
 
   useEffect(() => {
-    fetchBlogData();
-  }, [fetchBlogData]);
+    fetchBlog();
+  }, [fetchBlog]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setForm((prev) => prev ? { ...prev, [name]: value } : null);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+    
+    setForm((prev) => {
+        if (!prev) return null;
+        const newForm = {
+            ...prev,
+            [name]: type === "checkbox" ? checked : value,
+        };
+        if (name === "status") {
+            newForm.published = value === "published";
+        } else if (name === "published" && type === "checkbox") {
+            newForm.status = checked ? "published" : "draft";
+        }
+        if (name === "content") {
+            newForm.html_content = value;
+        } else if (name === "html_content") {
+            newForm.content = value;
+        }
+        return newForm;
+    });
   };
-
-  const handleSwitchChange = (checked: boolean) => {
-    setForm((prev) => prev ? { ...prev, published: checked } : null);
-  };
-
-  const handleContentChange = (newContent: string) => {
-    setForm((prev) => prev ? { ...prev, content: newContent } : null);
-  };
-
+  
   const handleImageSelect = (url: string) => {
-    setForm((prev) => prev ? { ...prev, thumbnail_image: url } : null);
+    if (imageTarget) {
+        setForm((prev) => prev ? { ...prev, [imageTarget]: url } : null);
+    }
     setShowMedia(false);
+    setImageTarget(null);
   };
 
-  const handleUpdate = async () => {
-    if (!form) return;
-    if (!form.title.trim() || !form.slug.trim()) {
+  const handleSubmit = async () => {
+    if (!form || !form.title || !form.slug) {
       toast({ title: "Eksik Bilgi", description: "Başlık ve slug alanı zorunludur.", variant: "destructive" });
       return;
     }
-     if (!form.content.trim()) {
+    if (!form.content?.trim()) {
         toast({ title: "Eksik Bilgi", description: "İçerik alanı boş bırakılamaz.", variant: "destructive" });
         return;
     }
+
     setIsSaving(true);
-    try {
-      const { error } = await supabase.from("bloglar").update({
+    const updateData = {
         title: form.title,
         slug: form.slug,
         content: form.content,
@@ -147,16 +169,22 @@ export default function EditBlogPage() {
         seo_description: form.seo_description,
         thumbnail_image: form.thumbnail_image,
         published: form.published,
-      }).eq("id", id);
+        // Diğer Supabase'e gönderilecek alanlar varsa:
+        // external_url: form.external_url,
+        // menu_group: form.menu_group,
+        // parent: form.parent,
+    };
 
-      if (error) throw error;
-      toast({ title: "Başarılı", description: "Blog yazısı başarıyla güncellendi." });
-      router.push("/blogs");
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message || "Blog güncellenirken bir sorun oluştu.", variant: "destructive" });
-    } finally {
-      setIsSaving(false);
+    const { error } = await supabase.from("bloglar").update(updateData).eq("id", id);
+    
+    if (error) {
+        toast({ title: "Hata", description: error.message, variant: "destructive" });
+    } else {
+        toast({ title: "Başarılı", description: "Blog yazısı başarıyla güncellendi." });
+        router.push("/blogs");
+        router.refresh(); // Sayfanın yenilenerek güncel veriyi çekmesini sağlayabilir
     }
+    setIsSaving(false);
   };
 
   const handleDelete = async () => {
@@ -170,6 +198,7 @@ export default function EditBlogPage() {
         if (error) throw error;
         toast({ title: "Başarılı", description: "Blog yazısı silindi." });
         router.push("/blogs");
+        router.refresh(); // Sayfanın yenilenerek güncel veriyi çekmesini sağlayabilir
     } catch (error: any) {
         toast({ title: "Silme Hatası", description: error.message || "Blog silinirken bir hata oluştu.", variant: "destructive" });
     } finally {
@@ -177,26 +206,26 @@ export default function EditBlogPage() {
     }
   };
 
-  if (loadingInitialData) {
+  if (isLoadingData) {
     return (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
             <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: corporateColor }} />
             <p className="text-lg font-medium text-gray-700 dark:text-slate-300">Blog Yazısı Yükleniyor...</p>
         </div>
     );
   }
 
-  if (errorLoading || !form) {
+  if (!form) {
     return (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
-            <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-            <p className="text-lg font-medium text-red-600 mb-2">Hata Oluştu</p>
-            <p className="text-sm text-gray-600 dark:text-slate-400 text-center mb-6">{errorLoading || "Blog yazısı yüklenemedi."}</p>
-            <Button variant="outline" onClick={() => router.push('/blogs')}>Blog Listesine Dön</Button>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
+            <AlertTriangle className="w-12 h-12 text-red-500 mb-4" /> {/* Düzeltme 3: AlertTriangle kullanılıyor */}
+            <p className="text-lg font-medium text-red-600 mb-2">Veri Bulunamadı</p>
+            <p className="text-sm text-gray-600 dark:text-slate-400 text-center mb-6">Blog yazısı yüklenemedi veya bulunamadı.</p>
+            <Button variant="outline" onClick={() => router.push('/blogs')} className="dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700">Blog Listesine Dön</Button>
         </div>
     );
   }
-
+  
   return (
     <div className="p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-slate-900 min-h-screen">
       <div className="max-w-4xl mx-auto">
@@ -221,58 +250,69 @@ export default function EditBlogPage() {
               <Newspaper className="w-6 h-6 mr-2" /> "{form.title || 'Başlıksız Blog'}"
             </CardTitle>
             <CardDescription className="dark:text-slate-400">
-              Blog yazınızın detaylarını ve içeriğini buradan güncelleyebilirsiniz.
+              Blog yazınızın detaylarını ve içeriğini güncelleyin.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="title" className="font-medium dark:text-slate-300">Başlık <span className="text-red-500">*</span></Label>
-                <Input id="title" name="title" value={form.title} onChange={handleChange} className="focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="slug" className="font-medium dark:text-slate-300">URL (Slug) <span className="text-red-500">*</span></Label>
-                <Input id="slug" name="slug" value={form.slug} onChange={handleChange} className="focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="content" className="font-medium dark:text-slate-300">İçerik (HTML Destekler) <span className="text-red-500">*</span></Label>
-              <Textarea
-                id="content" name="content"
-                value={form.content}
-                onChange={(e) => handleContentChange(e.target.value)}
-                className="min-h-[350px] font-mono text-sm p-3 focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
-                style={{ "--ring-color": corporateColor } as React.CSSProperties}
-                placeholder="<p>Blog yazınızın içeriğini buraya HTML formatında girin...</p>"
-              />
-            </div>
-            <div>
-                <Label className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 block flex items-center"><Eye className="w-4 h-4 mr-2" /> İçerik Önizlemesi</Label>
-                <div className="border rounded-md p-4 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 shadow-inner min-h-[150px]">
-                    <div dangerouslySetInnerHTML={{ __html: form.content }} className="prose prose-sm sm:prose dark:prose-invert max-w-none" />
+            {/* Temel Bilgiler */}
+            <div className="space-y-4 p-4 border rounded-md dark:border-slate-700">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200 mb-2">Temel Bilgiler</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="title" className="font-medium dark:text-slate-300">Başlık <span className="text-red-500">*</span></Label>
+                        <Input id="title" name="title" value={form.title} onChange={handleChange} className={inputClassName} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="slug" className="font-medium dark:text-slate-300">Slug <span className="text-red-500">*</span></Label>
+                        <Input id="slug" name="slug" value={form.slug} onChange={handleChange} className={inputClassName} />
+                    </div>
                 </div>
             </div>
-            
-            <Separator className="my-6 dark:bg-slate-700" />
 
-            <div>
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200 mb-3">SEO Bilgileri (Opsiyonel)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* HTML İçerik Alanı */}
+            <div className="space-y-1.5 p-4 border rounded-md dark:border-slate-700">
+              <Label htmlFor="content" className="text-lg font-semibold text-gray-700 dark:text-slate-200 mb-2 block">İçerik (HTML Destekler) <span className="text-red-500">*</span></Label>
+              <textarea
+                id="content" name="content"
+                value={form.content || ""}
+                onChange={handleChange}
+                rows={18}
+                className={`${inputClassName} min-h-[400px] font-mono text-sm p-3`}
+                placeholder="<p>Blog yazınızın içeriğini buraya HTML formatında girin...</p>"
+              />
+              <div className="mt-3">
+                <Label className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 block flex items-center"><Eye className="w-4 h-4 mr-2" /> İçerik Önizlemesi</Label>
+                <div className="border rounded-md p-4 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 shadow-inner min-h-[150px]">
+                    <div dangerouslySetInnerHTML={{ __html: form.content || "" }} className="prose prose-sm sm:prose dark:prose-invert max-w-none" />
+                </div>
+              </div>
+            </div>
+            
+            {/* SEO Bilgileri */}
+            <div className="space-y-4 p-4 border rounded-md dark:border-slate-700">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200 mb-2">SEO Bilgileri (Opsiyonel)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <Label htmlFor="seo_title" className="font-medium dark:text-slate-300">SEO Başlık</Label>
-                        <Input id="seo_title" name="seo_title" value={form.seo_title} onChange={handleChange} className="focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
+                        <Input id="seo_title" name="seo_title" value={form.seo_title || ""} onChange={handleChange} className={inputClassName} />
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="seo_description" className="font-medium dark:text-slate-300">SEO Açıklama</Label>
-                        <Textarea id="seo_description" name="seo_description" value={form.seo_description} onChange={(e) => handleChange(e)} rows={3} className="min-h-[80px] focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
+                        <textarea 
+                            id="seo_description" 
+                            name="seo_description" 
+                            value={form.seo_description || ""} 
+                            onChange={handleChange} 
+                            rows={3} 
+                            className={`${inputClassName} min-h-[80px]`}
+                            placeholder="Google arama açıklaması (max 160 karakter)"
+                        />
                     </div>
                 </div>
             </div>
             
-            <Separator className="my-6 dark:bg-slate-700" />
-            
-            <div>
+            {/* Kapak Görseli ve Yayın Durumu */}
+            <div className="space-y-4 p-4 border rounded-md dark:border-slate-700">
                 <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200 mb-3">Görsel ve Yayın Ayarları</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <div className="space-y-1.5">
@@ -280,7 +320,9 @@ export default function EditBlogPage() {
                         {form.thumbnail_image && (
                         <div className="relative group w-full max-w-xs aspect-video rounded border dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800 mt-1">
                             <img src={form.thumbnail_image} alt="Kapak Görseli Önizleme" className="w-full h-full object-contain" />
-                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setForm(prev => prev ? {...prev, thumbnail_image: ''} : null)}><Trash className="h-4 w-4"/></Button>
+                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setForm(prev => prev ? {...prev, thumbnail_image: ''} : null)}>
+                                <Trash2 className="h-4 w-4"/> {/* Düzeltme 2: Trash -> Trash2 */}
+                            </Button>
                         </div>
                         )}
                         {!form.thumbnail_image && (
@@ -292,22 +334,24 @@ export default function EditBlogPage() {
                             id="thumbnail_image_button"
                             variant="outline" 
                             size="sm" 
-                            onClick={() => setShowMedia(true)} // imageTarget burada direkt thumbnail_image olduğu için ayrıca set etmeye gerek yok gibi duruyor, ama MediaLibrary props'ları gerektiriyorsa eklenebilir. Şimdilik basit tuttum.
+                            onClick={() => {setImageTarget("thumbnail_image"); setShowMedia(true);}}
                             className="mt-2 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700"
                         >
                             <ImageIcon className="w-4 h-4 mr-2" /> Ortam Kütüphanesinden Seç
                         </Button>
                     </div>
                     <div className="space-y-1.5 pt-1 md:pt-0">
-                        <Label htmlFor="published_switch" className="block mb-2 font-medium dark:text-slate-300">Yayın Durumu</Label>
+                        <Label htmlFor="published" className="block mb-2 font-medium dark:text-slate-300">Yayın Durumu</Label>
                         <div className="flex items-center space-x-2">
-                        <Switch
-                            id="published_switch"
-                            checked={form.published}
-                            onCheckedChange={handleSwitchChange}
-                            className="data-[state=checked]:bg-[#6A3C96]"
+                        <input
+                            type="checkbox"
+                            name="published"
+                            checked={form.published || false}
+                            onChange={handleChange} // Düzeltme 4: handlePublishedChange -> handleChange
+                            id="published"
+                            className={`h-5 w-5 rounded border-gray-300 dark:border-slate-600 text-[${corporateColor}] focus:ring-2 focus:ring-[${corporateColor}] dark:bg-slate-700 dark:checked:bg-[${corporateColor}]`}
                         />
-                        <Label htmlFor="published_switch" className="cursor-pointer text-sm font-medium dark:text-slate-300">
+                        <Label htmlFor="published" className="cursor-pointer text-sm font-medium dark:text-slate-300">
                             {form.published ? "Blog Yazısı Yayında" : "Blog Yazısı Taslak"}
                         </Label>
                         </div>
@@ -327,10 +371,10 @@ export default function EditBlogPage() {
               Sil
             </Button>
             <Button 
-                onClick={handleUpdate} 
-                disabled={isSaving || !form.title.trim() || !form.slug.trim()}
+                onClick={handleSubmit} 
+                disabled={isSaving || !form.title?.trim() || !form.slug?.trim()}
                 className="text-white min-w-[160px] h-11 text-base w-full sm:w-auto order-1 sm:order-2"
-                style={{ backgroundColor: isSaving || !form.title.trim() || !form.slug.trim() ? undefined : corporateColor, opacity: isSaving || !form.title.trim() || !form.slug.trim() ? 0.6 : 1 }}
+                style={{ backgroundColor: isSaving || !form.title?.trim() || !form.slug?.trim() ? undefined : corporateColor, opacity: isSaving || !form.title?.trim() || !form.slug?.trim() ? 0.6 : 1 }}
             >
               {isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
               {isSaving ? "Güncelleniyor..." : "Değişiklikleri Kaydet"}
@@ -341,7 +385,7 @@ export default function EditBlogPage() {
         {showMedia && (
           <MediaLibraryModal
             onSelect={handleImageSelect}
-            onClose={() => setShowMedia(false)}
+            onClose={() => {setShowMedia(false); setImageTarget(null);}}
           />
         )}
       </div>
