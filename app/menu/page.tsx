@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Uzun listeler için
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,19 +20,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // Onay için
+} from "@/components/ui/alert-dialog";
 
 // lucide-react İkonları
 import { GripVertical, Edit, Trash2, PlusCircle, X, Loader2, ListTree, Inbox, Save } from "lucide-react";
 
-// dnd-kit (Mevcut importlar korunuyor)
+// dnd-kit
 import {
   DndContext,
   PointerSensor,
   useSensor,
   useSensors,
   closestCenter,
-  DragEndEvent, // DragEndEvent tipini import ettim
+  DragEndEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -42,7 +42,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-// normalizeGroup fonksiyonu (değişiklik yok)
 function normalizeGroup(str: string) {
   return str
     .trim()
@@ -61,7 +60,6 @@ interface PageItem {
   group_sort_order: number | null;
 }
 
-// GroupBox için Props Interface'i
 interface GroupBoxProps {
   group: string;
   items: PageItem[];
@@ -71,7 +69,7 @@ interface GroupBoxProps {
   isEditing: boolean;
   editingValue: string;
   setEditingValue: (value: string) => void;
-  fetchPages: () => Promise<void>; // fetchPages prop olarak eklendi
+  fetchPages: () => Promise<void>;
 }
 
 function GroupBox({
@@ -83,7 +81,7 @@ function GroupBox({
   isEditing,
   editingValue,
   setEditingValue,
-  fetchPages, // fetchPages prop'u alındı
+  fetchPages,
 }: GroupBoxProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group,
@@ -93,25 +91,26 @@ function GroupBox({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.8 : 1,
-    boxShadow: isDragging ? "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)" : "0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06)", // Sürüklenirken gölge
+    boxShadow: isDragging ? "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)" : "0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06)",
   };
   
   const corporateColor = "#6A3C96";
 
   const handleRemovePageFromGroup = async (itemId: string) => {
     try {
-      const { error }셔츠 await supabase
+      // === DÜZELTME BURADA ===
+      const { error } = await supabase // "셔츠" karakterleri kaldırıldı ve "=" eklendi
         .from("Pages")
-        .update({ menu_group: null, group_sort_order: null, sort_order: null }) // sort_order da sıfırlanabilir
+        .update({ menu_group: null, group_sort_order: null, sort_order: null })
         .eq("id", itemId);
+      // === DÜZELTME SONU ===
       if (error) throw error;
       toast({ title: "Başarılı", description: "Sayfa gruptan çıkarıldı." });
-      await fetchPages(); // fetchPages prop'u çağrıldı
+      await fetchPages();
     } catch (error: any) {
       toast({ title: "Hata", description: "Sayfa gruptan çıkarılırken bir sorun oluştu: " + error.message, variant: "destructive" });
     }
   };
-
 
   return (
     <div ref={setNodeRef} style={style} className="rounded-lg border bg-white dark:bg-slate-850 dark:border-slate-700 shadow-sm">
@@ -167,7 +166,7 @@ function GroupBox({
       </div>
 
       {items.length > 0 ? (
-        <ScrollArea className="h-auto max-h-72"> {/* Uzun listeler için kaydırma */}
+        <ScrollArea className="h-auto max-h-72">
           <ul className="divide-y divide-gray-100 dark:divide-slate-700">
             {items.map((item: PageItem) => (
               <li key={item.id} className="px-4 py-2.5 text-sm text-gray-800 dark:text-slate-300 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-800">
@@ -186,7 +185,6 @@ function GroupBox({
   );
 }
 
-
 export default function MenuManagementPage() {
   const [pages, setPages] = useState<PageItem[]>([]);
   const [groupList, setGroupList] = useState<string[]>([]);
@@ -194,28 +192,27 @@ export default function MenuManagementPage() {
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [newGroupName, setNewGroupName] = useState("");
-  const [isLoading, setIsLoading] = useState(true); // Yükleme durumu
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } })); // PointerSensor için distance ayarı
+  const [isLoading, setIsLoading] = useState(true);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const corporateColor = "#6A3C96";
 
-  const fetchPages = useCallback(async () => { // useCallback eklendi
+  const fetchPages = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from("Pages") // Tablo adı "Pages" olarak düzeltildi (genellikle büyük harfle başlar)
+        .from("Pages")
         .select("id, title, menu_group, parent, sort_order, group_sort_order")
-        .order("group_sort_order", { ascending: true, nullsFirst: false }) // nullsFirst ayarı
-        .order("sort_order", { ascending: true, nullsFirst: false }); // Alt sıralama
+        .order("group_sort_order", { ascending: true, nullsFirst: false })
+        .order("sort_order", { ascending: true, nullsFirst: false });
 
       if (error) throw error;
 
       if (data) {
         setPages(data);
         const grouped = data.filter((p) => p.menu_group);
-        const orphaned = data.filter((p) => !p.menu_group && !p.parent); // parent'ı da olmayanlar
+        const orphaned = data.filter((p) => !p.menu_group && !p.parent);
 
-        // group_sort_order'a göre sıralanmış grupları al
         const uniqueGroupsMap = new Map<string, number>();
         grouped.forEach(p => {
             if (p.menu_group) {
@@ -231,7 +228,7 @@ export default function MenuManagementPage() {
             .map(([groupName]) => groupName);
 
         setGroupList(sortedUniqueGroups);
-        setOrphanPages(orphaned.sort((a,b) => (a.title > b.title ? 1 : -1))); // Alfabetik sırala
+        setOrphanPages(orphaned.sort((a,b) => (a.title > b.title ? 1 : -1)));
       }
     } catch (error: any) {
         console.error("Sayfalar yüklenemedi:", error);
@@ -239,39 +236,36 @@ export default function MenuManagementPage() {
     } finally {
         setIsLoading(false);
     }
-  }, []); // useCallback dependency array
+  }, []); 
 
   useEffect(() => {
     fetchPages();
-  }, [fetchPages]); // fetchPages useCallback ile sarmalandığı için dependency'e eklenebilir.
+  }, [fetchPages]);
 
   const updateGroupSortOrder = async (sortedGroups: string[]) => {
     try {
       const updates = sortedGroups.map(async (normalizedGroup, i) => {
-        // Find the original, non-normalized group name to update correctly
         const originalGroupItem = pages.find(p => p.menu_group && normalizeGroup(p.menu_group) === normalizedGroup);
         if (originalGroupItem && originalGroupItem.menu_group) {
           return supabase
             .from("Pages")
             .update({ group_sort_order: i })
-            .eq("menu_group", originalGroupItem.menu_group); // Use original casing
+            .eq("menu_group", originalGroupItem.menu_group);
         }
-        return Promise.resolve({ error: null }); // No-op if group not found (should not happen if logic is correct)
+        return Promise.resolve({ error: null });
       });
       
       const results = await Promise.all(updates);
       results.forEach(result => {
         if (result.error) throw result.error;
       });
-      // fetchPages(); // Optimistic update, or fetch on success
-      // For smoother UX, update local state first, then fetch or assume success
-       setGroupList(sortedGroups); // Update local state immediately
+       setGroupList(sortedGroups);
        toast({title: "Başarılı", description: "Grup sıralaması güncellendi."});
 
     } catch (error: any) {
         console.error("Grup sıralama hatası:", error);
         toast({ title: "Hata", description: "Grup sıralaması güncellenirken bir hata oluştu: " + error.message, variant: "destructive"});
-        await fetchPages(); // Re-fetch to revert to server state on error
+        await fetchPages(); 
     }
   };
   
@@ -281,31 +275,15 @@ export default function MenuManagementPage() {
         toast({ title: "Uyarı", description: "Lütfen geçerli bir grup adı girin.", variant: "default" });
         return;
     }
-    if (groupList.some(g => g.toLowerCase() === name.toLowerCase())) { // Normalized karşılaştırma
+    if (groupList.some(g => g.toLowerCase() === name.toLowerCase())) {
         toast({ title: "Uyarı", description: `"${name}" adında bir grup zaten mevcut.`, variant: "default" });
         return;
     }
-
-    // Bu fonksiyon aslında DB'de "boş" bir grup oluşturmaz, sadece var olan sayfalardan birine
-    // bu grup adını ve yeni bir sıralama numarası atar.
-    // Eğer gerçekten "boş" bir grup oluşturulması isteniyorsa, farklı bir yaklaşım gerekir
-    // (örn: menu_groups adında ayrı bir tablo).
-    // Mevcut Supabase update'i, eşleşen menu_group yoksa hiçbir şeyi güncellemez.
-    // Bu yüzden, yeni bir grubu UI'da göstermek için groupList'e ekleyip,
-    // daha sonra bir sayfaya bu grup atandığında DB'de anlamlı hale gelmesini bekleyebiliriz.
-    // VEYA, yeni grup eklendiğinde placeholder bir sayfa oluşturulabilir (bu fonksiyonel değişiklik olur).
-    // Şimdilik sadece UI'a ekleyip sıralamaya dahil edelim.
-    const newSortOrder = groupList.length;
     const updatedGroupList = [...groupList, name];
-    setGroupList(updatedGroupList); // UI'da hemen göster
+    setGroupList(updatedGroupList); 
     setNewGroupName(""); 
-    // Sunucuya bu "boş" grubun sıralamasını kaydetmek için bir mekanizma yok,
-    // çünkü group_sort_order Pages tablosunda.
-    // Bu yüzden, bu yeni grup adı bir sayfaya atanana kadar DB'de bir sıralaması olmayacak.
-    // Ancak, sürükle-bırak ile sıralama yapıldığında updateGroupSortOrder bunu düzeltecektir.
     toast({title: "Grup Eklendi (Yerel)", description: `"${name}" grubu listeye eklendi. Bir sayfaya atadığınızda sıralaması kaydedilecektir.`});
   };
-
 
   const updateGroupName = async (oldNormalizedName: string, newRawName: string) => {
     const newNormalizedName = normalizeGroup(newRawName);
@@ -315,7 +293,6 @@ export default function MenuManagementPage() {
         return;
     }
     
-    // Find the original, case-sensitive group name from an actual page item
     const originalGroupItem = pages.find(p => p.menu_group && normalizeGroup(p.menu_group) === oldNormalizedName);
     const originalCaseSensitiveGroupName = originalGroupItem?.menu_group;
 
@@ -328,17 +305,17 @@ export default function MenuManagementPage() {
     try {
       const { error } = await supabase
         .from("Pages")
-        .update({ menu_group: newNormalizedName }) // Store normalized or raw? Storing normalized ensures consistency.
-        .eq("menu_group", originalCaseSensitiveGroupName); // Match against original casing
+        .update({ menu_group: newNormalizedName }) 
+        .eq("menu_group", originalCaseSensitiveGroupName); 
       if (error) throw error;
       
       setEditingGroup(null);
-      await fetchPages(); // Fetch to get updated list and orders
+      await fetchPages(); 
       toast({ title: "Başarılı", description: `Grup adı "${newNormalizedName}" olarak güncellendi.`});
     } catch (error: any) {
         console.error("Grup adı güncelleme hatası:", error);
         toast({ title: "Hata", description: "Grup adı güncellenirken bir hata oluştu: " + error.message, variant: "destructive"});
-        setEditingGroup(null); // Hata durumunda da edit modunu kapat
+        setEditingGroup(null);
     }
   };
 
@@ -366,39 +343,20 @@ export default function MenuManagementPage() {
     }
   };
 
-
-  const onDragEnd = (event: DragEndEvent) => { // DragEndEvent tipini kullandım
+  const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (active && over && active.id !== over.id) { // active ve over null kontrolü
+    if (active && over && active.id !== over.id) {
       const oldIndex = groupList.indexOf(String(active.id));
       const newIndex = groupList.indexOf(String(over.id));
-      if (oldIndex !== -1 && newIndex !== -1) { // İndekslerin geçerli olduğundan emin ol
+      if (oldIndex !== -1 && newIndex !== -1) {
         const sorted = arrayMove(groupList, oldIndex, newIndex);
-        // setGroupList(sorted); // Optimistic update below
         updateGroupSortOrder(sorted);
       }
     }
   };
   
-  const handleRemoveOrphanFromList = async (pageId: string) => {
-    // Bu fonksiyon, yetim sayfayı listeden kaldırmaz,
-    // sadece "menu_group" ve "group_sort_order" alanlarını null'a ayarlar,
-    // ki bu yetim sayfalar için zaten null olmalıdır.
-    // Belki bu butonun amacı farklıdır veya kaldırılmalıdır.
-    // Şimdilik mevcut işlevini koruyarak toast ekliyorum.
-    try {
-        const { error } = await supabase
-        .from("Pages")
-        .update({ menu_group: null, group_sort_order: null, sort_order: null })
-        .eq("id", pageId);
-        if (error) throw error;
-        toast({title: "Başarılı", description: "Sayfanın grup bilgileri sıfırlandı (zaten grupsuzdu)."})
-        await fetchPages();
-    } catch (error: any) {
-        toast({title: "Hata", description: error.message, variant: "destructive"});
-    }
-  };
-
+  // Grupsuz sayfalar için "kaldır" butonu işlevsiz olduğu için o fonksiyonu yorum satırına alabilir veya silebiliriz.
+  // const handleRemoveOrphanFromList = async (pageId: string) => { ... };
 
   if (isLoading) {
     return (
@@ -411,7 +369,7 @@ export default function MenuManagementPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-slate-900 min-h-screen">
-      <div className="max-w-3xl mx-auto"> {/* Daha dar bir alan için max-w-3xl */}
+      <div className="max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 pb-4 border-b dark:border-slate-700">
             <h1 className="text-3xl font-bold flex items-center text-gray-800 dark:text-slate-100">
                 <ListTree className="w-8 h-8 mr-3" style={{color: corporateColor}}/>
@@ -458,7 +416,7 @@ export default function MenuManagementPage() {
               {groupList.map((group) => {
                 const itemsInGroup = pages.filter(
                   (p) => p.menu_group && normalizeGroup(p.menu_group) === group
-                ).sort((a,b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity)); // Grup içi sıralama
+                ).sort((a,b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity));
 
                 return (
                   <GroupBox
@@ -470,13 +428,12 @@ export default function MenuManagementPage() {
                     setEditingValue={setEditingValue}
                     onEdit={() => {
                       setEditingGroup(group);
-                      // Grubu düzenlerken, orijinal (case-sensitive) adı bulup onu edit value yapalım.
                       const originalGroupItem = pages.find(p => p.menu_group && normalizeGroup(p.menu_group) === group);
                       setEditingValue(originalGroupItem?.menu_group || group); 
                     }}
-                    onSave={(val) => updateGroupName(group, val)} // oldNormalizedName, newRawName
+                    onSave={(val) => updateGroupName(group, val)}
                     onDelete={() => deleteGroupConfirmation(group)}
-                    fetchPages={fetchPages} // fetchPages prop'u iletiliyor
+                    fetchPages={fetchPages}
                   />
                 );
               })}
@@ -498,12 +455,7 @@ export default function MenuManagementPage() {
                   {orphanPages.map((item) => (
                     <li key={item.id} className="px-4 py-2.5 text-sm text-gray-800 dark:text-slate-300 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-800">
                       <span className="truncate" title={item.title}>• {item.title}</span>
-                      {/* Grupsuz sayfalar için "kaldır" butonu anlamsız, çünkü zaten bir grupta değiller.
-                          Belki bir gruba atama arayüzü eklenebilir ileride. Şimdilik bu butonu kaldırıyorum.
-                      <Button variant="link" size="sm" onClick={() => handleRemoveOrphanFromList(item.id)} className="text-xs text-red-500 hover:text-red-700 h-auto p-0">
-                        <X className="w-3.5 h-3.5 mr-1" /> Gruptan Çıkar (Zaten Grupsuz)
-                      </Button>
-                      */}
+                      {/* Grupsuz sayfalar için "kaldır" butonu işlevsiz olduğu için kaldırıldı. */}
                     </li>
                   ))}
                 </ul>
