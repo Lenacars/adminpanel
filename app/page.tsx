@@ -1,113 +1,138 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
+interface Kullanici {
+  id: string;
+  ad: string;
+  soyad: string;
+  email: string;
+  created_at: string;
+}
+
+interface Yorum {
+  id: string;
+  yorum: string;
+  created_at: string;
+  kullanici: { ad: string; soyad: string };
+  arac: { isim: string };
+}
+
+interface Arac {
+  id: string;
+  isim: string;
+  visit_count: number;
+}
+
+interface Blog {
+  id: string;
+  title: string;
+  view_count: number;
+}
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [kullanicilar, setKullanicilar] = useState<Kullanici[]>([]);
+  const [yorumlar, setYorumlar] = useState<Yorum[]>([]);
+  const [araclar, setAraclar] = useState<Arac[]>([]);
+  const [bloglar, setBloglar] = useState<Blog[]>([]);
 
   useEffect(() => {
-    // Oturum kontrolü yap
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push("/login");
-      } else {
-        setCheckingSession(false); // Oturum varsa gösterime izin ver
-      }
-    });
-  }, []);
+    const fetchData = async () => {
+      // 1. Son Kullanıcılar
+      const { data: users } = await supabase
+        .from("kullanicilar")
+        .select("id, ad, soyad, email, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setKullanicilar(users || []);
 
-  if (checkingSession) {
-    return (
-      <div className="h-screen flex items-center justify-center text-xl text-[#68399e]">
-        Giriş kontrol ediliyor...
-      </div>
-    );
-  }
+      // 2. Son Yorumlar
+      const { data: comments } = await supabase
+        .from("yorumlar")
+        .select("id, yorum, created_at, kullanici:kullanicilar(ad,soyad), arac:araclar(isim)")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setYorumlar(comments || []);
+
+      // 3. En Çok Ziyaret Edilen Araçlar
+      const { data: topVehicles } = await supabase
+        .from("araclar")
+        .select("id, isim, visit_count")
+        .order("visit_count", { ascending: false })
+        .limit(5);
+      setAraclar(topVehicles || []);
+
+      // 4. En Çok Görüntülenen Bloglar
+      const { data: topBlogs } = await supabase
+        .from("bloglar")
+        .select("id, title, view_count")
+        .order("view_count", { ascending: false })
+        .limit(5);
+      setBloglar(topBlogs || []);
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <div className="p-6 space-y-6">
-      {/* İstatistik kutuları */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Toplam Gelir</CardTitle>
+            <CardTitle>Son Kullanıcılar</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">₺45.231,89</p>
-            <p className="text-sm text-muted-foreground">+20.1% geçen aydan</p>
+          <CardContent className="space-y-2 text-sm">
+            {kullanicilar.map((k) => (
+              <div key={k.id} className="border-b pb-2">
+                <p className="font-semibold">{k.ad} {k.soyad}</p>
+                <p className="text-xs text-muted-foreground">{k.email}</p>
+              </div>
+            ))}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Abonelikler</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">+2.350</p>
-            <p className="text-sm text-muted-foreground">+180.1% geçen aydan</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Satışlar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">+12.234</p>
-            <p className="text-sm text-muted-foreground">+19% geçen aydan</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Aktif Kullanıcılar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">+573</p>
-            <p className="text-sm text-muted-foreground">+201 geçen aydan</p>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Grafik ve Son Aktiviteler */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="md:col-span-2 h-[300px]">
-          <CardHeader>
-            <CardTitle>Genel Bakış</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">Grafik burada yer alacak</p>
-          </CardContent>
-        </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Son Aktiviteler</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Son 24 saatte 34 işlem gerçekleşti
-            </p>
+            <CardTitle>Son Yorumlar</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="font-semibold">Ahmet Yılmaz</p>
-              <p className="text-sm text-muted-foreground">ahmet@ornek.com</p>
-              <p className="text-right">+₺1.999,00</p>
-            </div>
-            <div>
-              <p className="font-semibold">Ayşe Demir</p>
-              <p className="text-sm text-muted-foreground">ayse@ornek.com</p>
-              <p className="text-right">+₺39,00</p>
-            </div>
-            <div>
-              <p className="font-semibold">Mehmet Kaya</p>
-              <p className="text-sm text-muted-foreground">mehmet@ornek.com</p>
-              <p className="text-right">+₺299,00</p>
-            </div>
+          <CardContent className="space-y-2 text-sm">
+            {yorumlar.map((y) => (
+              <div key={y.id} className="border-b pb-2">
+                <p className="text-muted-foreground text-xs">{new Date(y.created_at).toLocaleString("tr-TR")}</p>
+                <p><span className="font-semibold">{y.kullanici.ad} {y.kullanici.soyad}</span> → <i>{y.arac.isim}</i></p>
+                <p className="text-sm">"{y.yorum}"</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>En Çok Ziyaret Edilen Araçlar</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {araclar.map((a) => (
+              <div key={a.id} className="flex justify-between border-b pb-1">
+                <span>{a.isim}</span>
+                <span className="text-muted-foreground">{a.visit_count} ziyaret</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>En Çok Görüntülenen Bloglar</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {bloglar.map((b) => (
+              <div key={b.id} className="flex justify-between border-b pb-1">
+                <span>{b.title}</span>
+                <span className="text-muted-foreground">{b.view_count} görüntüleme</span>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>
