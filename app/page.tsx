@@ -10,6 +10,7 @@ interface Kullanici {
   soyad: string;
   email: string;
   created_at: string;
+  auth_user_id: string;
 }
 
 interface Yorum {
@@ -43,9 +44,7 @@ export default function DashboardPage() {
     const fetchData = async () => {
       const { data: userData } = await supabase
         .from("kullanicilar")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .select("id, ad, soyad, email, created_at, auth_user_id");
 
       const { data: commentData } = await supabase
         .from("yorumlar")
@@ -55,9 +54,7 @@ export default function DashboardPage() {
 
       const { data: vehicleData } = await supabase
         .from("araclar")
-        .select("id, isim, visit_count")
-        .order("visit_count", { ascending: false })
-        .limit(5);
+        .select("id, isim, visit_count");
 
       const { data: blogData } = await supabase
         .from("bloglar")
@@ -75,7 +72,7 @@ export default function DashboardPage() {
   }, []);
 
   const enrichYorumlar = yorumlar.map((y) => {
-    const user = kullanicilar.find((k) => k.id === y.user_id);
+    const user = kullanicilar.find((k) => k.auth_user_id === y.user_id);
     const arac = araclar.find((a) => a.id === y.arac_id);
     return {
       ...y,
@@ -92,11 +89,14 @@ export default function DashboardPage() {
           <CardTitle>Son Kullanıcılar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {kullanicilar.map((user) => (
-            <div key={user.id}>
-              <p className="font-semibold">{user.ad} {user.soyad}</p>
-              <p className="text-sm text-muted-foreground">{user.email}</p>
-            </div>
+          {kullanicilar
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 5)
+            .map((user) => (
+              <div key={user.id}>
+                <p className="font-semibold">{user.ad} {user.soyad}</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+              </div>
           ))}
         </CardContent>
       </Card>
@@ -123,11 +123,14 @@ export default function DashboardPage() {
           <CardTitle>En Çok Ziyaret Edilen Araçlar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {araclar.map((a) => (
-            <div key={a.id}>
-              <p className="font-semibold">{a.isim}</p>
-              <p className="text-sm text-muted-foreground">{a.visit_count} görüntülenme</p>
-            </div>
+          {araclar
+            .sort((a, b) => b.visit_count - a.visit_count)
+            .slice(0, 5)
+            .map((a) => (
+              <div key={a.id}>
+                <p className="font-semibold">{a.isim}</p>
+                <p className="text-sm text-muted-foreground">{a.visit_count} görüntülenme</p>
+              </div>
           ))}
         </CardContent>
       </Card>
