@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Kullanici {
   id: string;
@@ -16,8 +16,9 @@ interface Yorum {
   id: string;
   yorum: string;
   created_at: string;
-  kullanici: { ad: string; soyad: string };
-  arac: { isim: string };
+  user_id: string;
+  arac_id: string;
+  puan: number;
 }
 
 interface Arac {
@@ -40,102 +41,111 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Son Kullanıcılar
-      const { data: users } = await supabase
+      const { data: userData } = await supabase
         .from("kullanicilar")
-        .select("id, ad, soyad, email, created_at")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(5);
-      setKullanicilar(users || []);
 
-      // 2. Son Yorumlar
-      const { data: comments } = await supabase
+      const { data: commentData } = await supabase
         .from("yorumlar")
-        .select("id, yorum, created_at, kullanici:kullanicilar(ad,soyad), arac:araclar(isim)")
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(5);
-      setYorumlar(comments || []);
 
-      // 3. En Çok Ziyaret Edilen Araçlar
-      const { data: topVehicles } = await supabase
+      const { data: vehicleData } = await supabase
         .from("araclar")
         .select("id, isim, visit_count")
         .order("visit_count", { ascending: false })
         .limit(5);
-      setAraclar(topVehicles || []);
 
-      // 4. En Çok Görüntülenen Bloglar
-      const { data: topBlogs } = await supabase
+      const { data: blogData } = await supabase
         .from("bloglar")
         .select("id, title, view_count")
         .order("view_count", { ascending: false })
         .limit(5);
-      setBloglar(topBlogs || []);
+
+      setKullanicilar(userData || []);
+      setYorumlar(commentData || []);
+      setAraclar(vehicleData || []);
+      setBloglar(blogData || []);
     };
 
     fetchData();
   }, []);
 
+  const enrichYorumlar = yorumlar.map((y) => {
+    const user = kullanicilar.find((k) => k.id === y.user_id);
+    const arac = araclar.find((a) => a.id === y.arac_id);
+    return {
+      ...y,
+      userName: user ? `${user.ad} ${user.soyad}` : "Bilinmeyen Kullanıcı",
+      vehicleName: arac ? arac.isim : "Bilinmeyen Araç",
+    };
+  });
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Son Kullanıcılar</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {kullanicilar.map((k) => (
-              <div key={k.id} className="border-b pb-2">
-                <p className="font-semibold">{k.ad} {k.soyad}</p>
-                <p className="text-xs text-muted-foreground">{k.email}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6">
+      {/* SON KULLANICILAR */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Son Kullanıcılar</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {kullanicilar.map((user) => (
+            <div key={user.id}>
+              <p className="font-semibold">{user.ad} {user.soyad}</p>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Son Yorumlar</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {yorumlar.map((y) => (
-              <div key={y.id} className="border-b pb-2">
-                <p className="text-muted-foreground text-xs">{new Date(y.created_at).toLocaleString("tr-TR")}</p>
-                <p><span className="font-semibold">{y.kullanici.ad} {y.kullanici.soyad}</span> → <i>{y.arac.isim}</i></p>
-                <p className="text-sm">"{y.yorum}"</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      {/* SON YORUMLAR */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Son Yorumlar</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {enrichYorumlar.map((y) => (
+            <div key={y.id}>
+              <p className="font-semibold">{y.userName}</p>
+              <p className="text-sm text-muted-foreground">{y.vehicleName}</p>
+              <p className="text-sm mt-1">"{y.yorum}"</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>En Çok Ziyaret Edilen Araçlar</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {araclar.map((a) => (
-              <div key={a.id} className="flex justify-between border-b pb-1">
-                <span>{a.isim}</span>
-                <span className="text-muted-foreground">{a.visit_count} ziyaret</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      {/* EN ÇOK ZİYARET EDİLEN ARAÇLAR */}
+      <Card>
+        <CardHeader>
+          <CardTitle>En Çok Ziyaret Edilen Araçlar</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {araclar.map((a) => (
+            <div key={a.id}>
+              <p className="font-semibold">{a.isim}</p>
+              <p className="text-sm text-muted-foreground">{a.visit_count} görüntülenme</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>En Çok Görüntülenen Bloglar</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {bloglar.map((b) => (
-              <div key={b.id} className="flex justify-between border-b pb-1">
-                <span>{b.title}</span>
-                <span className="text-muted-foreground">{b.view_count} görüntüleme</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      {/* EN ÇOK GÖRÜNTÜLENEN BLOGLAR */}
+      <Card>
+        <CardHeader>
+          <CardTitle>En Çok Görüntülenen Bloglar</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {bloglar.map((b) => (
+            <div key={b.id}>
+              <p className="font-semibold">{b.title}</p>
+              <p className="text-sm text-muted-foreground">{b.view_count} görüntülenme</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }
