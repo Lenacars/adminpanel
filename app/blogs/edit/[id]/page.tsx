@@ -1,21 +1,26 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react"; // useCallback eklendi
+import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
-// Sizin kodunuzda olan shadcn/ui importları korunuyor
-import { Input } from "@/components/ui/input";
+// shadcn/ui Bileşenleri
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "@/components/ui/card"; // CardDescription eklendi
+import { Separator } from "@/components/ui/separator"; // Separator importu eklendi!
+
 
 // lucide-react İkonları
-import { Save, Trash2, ImageIcon, Loader2, ImageOff, Eye, Edit as EditIcon, Newspaper, PlusCircle } from "lucide-react";
+import { 
+    Save, Trash2, ImageIcon, Loader2, ImageOff, FileText, Eye, Edit as EditIcon, Newspaper, AlertTriangle, PlusCircle // PlusCircle eklendi (header için)
+} from "lucide-react";
 
-// MediaLibraryModal (önceki kodunuzdaki gibi, MediaLibrary -> MediaLibraryModal olarak düzelttim)
 const MediaLibraryLoading = () => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]">
     <div className="bg-white p-6 rounded-lg shadow-xl flex items-center dark:bg-slate-800">
@@ -24,114 +29,117 @@ const MediaLibraryLoading = () => (
     </div>
   </div>
 );
-const MediaLibraryModal = dynamic(() => import("@/components/MediaLibraryModal"), { // İsim düzeltildi
+
+const MediaLibraryModal = dynamic(() => import("@/components/MediaLibraryModal"), { 
   ssr: false,
-  loading: () => <MediaLibraryLoading />
+  loading: () => <MediaLibraryLoading /> 
 });
 
-
-interface BlogForm { // Daha spesifik bir tip adı
-  id?: string; // DB'den gelir
+interface BlogFormState {
   title: string;
   slug: string;
-  content: string; // HTML içerik
+  content: string;
   seo_title: string;
   seo_description: string;
   thumbnail_image: string;
   published: boolean;
-  created_at?: string; // DB'den gelir
+  id?: string;
+  created_at?: string;
 }
 
-// Formun başlangıç durumu için (null yerine)
-const initialFormState: BlogForm = {
-    title: "",
-    slug: "",
-    content: "<h1>Blog İçeriği</h1><p>HTML içeriğinizi buraya girin.</p>",
-    seo_title: "",
-    seo_description: "",
-    thumbnail_image: "",
-    published: false,
+const initialBlogFormState: Omit<BlogFormState, 'id' | 'created_at'> = { // Omit id and created_at for pure initial state
+  title: "",
+  slug: "",
+  content: "<h1>Blog İçeriği</h1><p>HTML içeriğinizi buraya girin.</p>",
+  seo_title: "",
+  seo_description: "",
+  thumbnail_image: "",
+  published: false,
 };
 
 export default function EditBlogPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [form, setForm] = useState<BlogForm>(initialFormState); // Başlangıç state'i null yerine initialFormState
-  const [isLoadingData, setIsLoadingData] = useState(true); // Veri yükleme için ayrı state
-  const [isSaving, setIsSaving] = useState(false); // Kaydetme/güncelleme durumu için
+  
+  const [form, setForm] = useState<BlogFormState | null>(null);
+  const [loadingInitialData, setLoadingInitialData] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [showMedia, setShowMedia] = useState(false);
-  // imageTarget için type'ı BlogForm'dan alalım
-  const [imageTarget, setImageTarget] = useState<keyof Pick<BlogForm, "thumbnail_image"> | null>(null);
-
+  const [errorLoading, setErrorLoading] = useState<string | null>(null);
 
   const corporateColor = "#6A3C96";
-  const inputClassName = "border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 w-full rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 dark:focus:ring-offset-slate-900";
 
-
-  const fetchBlog = useCallback(async () => {
+  const fetchBlogData = useCallback(async () => {
     if (!id) {
-      toast({ title: "Hata", description: "Blog ID bulunamadı.", variant: "destructive" });
-      setIsLoadingData(false);
-      router.push("/blogs"); // ID yoksa listeye yönlendir
-      return;
+        setErrorLoading("Blog ID bulunamadı.");
+        setLoadingInitialData(false);
+        router.push("/blogs"); 
+        return;
     }
-    setIsLoadingData(true);
-    const { data, error } = await supabase.from("bloglar").select("*").eq("id", id).single();
-    
-    if (error || !data) {
-      toast({ title: "Hata", description: error?.message || "Blog verisi alınamadı.", variant: "destructive" });
-      setIsLoadingData(false);
-      router.push("/blogs"); // Hata veya veri yoksa listeye yönlendir
-      return;
+    setLoadingInitialData(true);
+    setErrorLoading(null);
+    try {
+        const { data, error } = await supabase.from("bloglar").select("*").eq("id", id).single();
+        if (error) throw error;
+        if (data) {
+            setForm({
+                id: data.id,
+                title: data.title || "",
+                slug: data.slug || "",
+                content: data.content || initialBlogFormState.content,
+                seo_title: data.seo_title || "",
+                seo_description: data.seo_description || "",
+                thumbnail_image: data.thumbnail_image || "",
+                published: data.published || false,
+                created_at: data.created_at,
+            });
+        } else {
+            throw new Error("Blog yazısı bulunamadı.");
+        }
+    } catch (error: any) {
+        console.error("Blog verisi alınamadı:", error);
+        setErrorLoading(error.message || "Blog verisi yüklenirken bir hata oluştu.");
+        toast({ title: "Hata", description: error.message || "Blog verisi yüklenemedi.", variant: "destructive" });
+    } finally {
+        setLoadingInitialData(false);
     }
-    setForm(data as BlogForm); // Gelen veriyi state'e ata
-    setIsLoadingData(false);
   }, [id, router]);
 
   useEffect(() => {
-    fetchBlog();
-  }, [fetchBlog]);
+    fetchBlogData();
+  }, [fetchBlogData]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { // HTMLTextAreaElement eklendi
-    const { name, value, type } = e.target;
-    // type 'checkbox' için checked'ı almak için e.target'ı HTMLInputElement olarak cast etmemiz gerekebilir
-    const checkedValue = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
-    
-    setForm((prev) => ({
-      ...prev!, // form null olmayacak varsayımı (çünkü !form durumunda return ediyoruz)
-      [name]: type === "checkbox" ? checkedValue : value,
-    }));
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setForm((prev) => prev ? { ...prev, [name]: value } : null);
   };
 
-  // HTML Checkbox için özel bir handler (isteğe bağlı, handleChange de çalışır)
-  const handlePublishedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({...prev!, published: e.target.checked}));
-  }
+  const handleSwitchChange = (checked: boolean) => {
+    setForm((prev) => prev ? { ...prev, published: checked } : null);
+  };
 
-  const handleContentChange = (newContent: string) => { // Textarea için
-    setForm((prev) => ({ ...prev!, content: newContent }));
+  const handleContentChange = (newContent: string) => {
+    setForm((prev) => prev ? { ...prev, content: newContent } : null);
   };
 
   const handleImageSelect = (url: string) => {
-    if (imageTarget) { // imageTarget 'thumbnail_image' olmalı
-        setForm((prev) => ({ ...prev!, [imageTarget]: url }));
-    }
+    setForm((prev) => prev ? { ...prev, thumbnail_image: url } : null);
     setShowMedia(false);
-    setImageTarget(null);
   };
 
-  const handleSubmit = async () => {
-    if (!form || !form.title || !form.slug) {
+  const handleUpdate = async () => {
+    if (!form) return;
+    if (!form.title.trim() || !form.slug.trim()) {
       toast({ title: "Eksik Bilgi", description: "Başlık ve slug alanı zorunludur.", variant: "destructive" });
       return;
     }
-    if (!form.content.trim()) {
+     if (!form.content.trim()) {
         toast({ title: "Eksik Bilgi", description: "İçerik alanı boş bırakılamaz.", variant: "destructive" });
         return;
     }
-
     setIsSaving(true);
-    const { error } = await supabase.from("bloglar").update({
+    try {
+      const { error } = await supabase.from("bloglar").update({
         title: form.title,
         slug: form.slug,
         content: form.content,
@@ -139,15 +147,16 @@ export default function EditBlogPage() {
         seo_description: form.seo_description,
         thumbnail_image: form.thumbnail_image,
         published: form.published,
-    }).eq("id", id);
+      }).eq("id", id);
 
-    if (error) {
-        toast({ title: "Hata", description: error.message, variant: "destructive" });
-    } else {
-        toast({ title: "Başarılı", description: "Blog yazısı başarıyla güncellendi." });
-        router.push("/blogs");
+      if (error) throw error;
+      toast({ title: "Başarılı", description: "Blog yazısı başarıyla güncellendi." });
+      router.push("/blogs");
+    } catch (error: any) {
+      toast({ title: "Hata", description: error.message || "Blog güncellenirken bir sorun oluştu.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const handleDelete = async () => {
@@ -168,21 +177,21 @@ export default function EditBlogPage() {
     }
   };
 
-  if (isLoadingData) { // Ayrı yükleme state'i kullanılıyor
+  if (loadingInitialData) {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
             <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: corporateColor }} />
             <p className="text-lg font-medium text-gray-700 dark:text-slate-300">Blog Yazısı Yükleniyor...</p>
         </div>
     );
   }
 
-  if (!form) { // Eğer form hala null ise (hata veya veri yok durumu fetchBlog'da ele alındı ama ek kontrol)
+  if (errorLoading || !form) {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
-             <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-            <p className="text-lg font-medium text-red-600 mb-2">Veri Yüklenemedi</p>
-            <p className="text-sm text-gray-600 dark:text-slate-400 text-center mb-6">Blog yazısı yüklenemedi veya bulunamadı.</p>
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-150px)] p-8 bg-gray-50 dark:bg-slate-900">
+            <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
+            <p className="text-lg font-medium text-red-600 mb-2">Hata Oluştu</p>
+            <p className="text-sm text-gray-600 dark:text-slate-400 text-center mb-6">{errorLoading || "Blog yazısı yüklenemedi."}</p>
             <Button variant="outline" onClick={() => router.push('/blogs')}>Blog Listesine Dön</Button>
         </div>
     );
@@ -196,11 +205,16 @@ export default function EditBlogPage() {
                 <EditIcon className="w-8 h-8 mr-3" style={{color: corporateColor}}/>
                 Blog Yazısını Düzenle
             </h1>
-             <Button variant="outline" onClick={() => router.push('/blogs')} className="mt-4 sm:mt-0 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700">
-                Blog Listesine Dön
-            </Button>
+            <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                <Button variant="outline" onClick={() => router.push('/blogs/new')} className="dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Yeni Ekle
+                </Button>
+                <Button variant="outline" onClick={() => router.push('/blogs')} className="dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700">
+                    Blog Listesine Dön
+                </Button>
+            </div>
         </div>
-        
+
         <Card className="dark:bg-slate-850 dark:border-slate-700 shadow-lg">
           <CardHeader>
             <CardTitle className="text-2xl font-semibold flex items-center dark:text-slate-100" style={{color: corporateColor}}>
@@ -211,27 +225,25 @@ export default function EditBlogPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            {/* Temel Bilgiler */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
                 <Label htmlFor="title" className="font-medium dark:text-slate-300">Başlık <span className="text-red-500">*</span></Label>
-                <Input id="title" name="title" value={form.title} onChange={handleChange} className={`focus:ring-[${corporateColor}]`} />
+                <Input id="title" name="title" value={form.title} onChange={handleChange} className="focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="slug" className="font-medium dark:text-slate-300">Slug <span className="text-red-500">*</span></Label>
-                <Input id="slug" name="slug" value={form.slug} onChange={handleChange} className={`focus:ring-[${corporateColor}]`} />
+                <Label htmlFor="slug" className="font-medium dark:text-slate-300">URL (Slug) <span className="text-red-500">*</span></Label>
+                <Input id="slug" name="slug" value={form.slug} onChange={handleChange} className="focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
               </div>
             </div>
 
-            {/* HTML İçerik Alanı */}
             <div className="space-y-1.5">
               <Label htmlFor="content" className="font-medium dark:text-slate-300">İçerik (HTML Destekler) <span className="text-red-500">*</span></Label>
-              <textarea
+              <Textarea
                 id="content" name="content"
                 value={form.content}
-                onChange={handleChange}
-                rows={15} // Daha fazla satır
-                className={`${inputClassName} focus:ring-[${corporateColor}] min-h-[300px] font-mono text-sm p-3`}
+                onChange={(e) => handleContentChange(e.target.value)}
+                className="min-h-[350px] font-mono text-sm p-3 focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+                style={{ "--ring-color": corporateColor } as React.CSSProperties}
                 placeholder="<p>Blog yazınızın içeriğini buraya HTML formatında girin...</p>"
               />
             </div>
@@ -244,33 +256,22 @@ export default function EditBlogPage() {
             
             <Separator className="my-6 dark:bg-slate-700" />
 
-            {/* SEO Bilgileri */}
             <div>
                 <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200 mb-3">SEO Bilgileri (Opsiyonel)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                         <Label htmlFor="seo_title" className="font-medium dark:text-slate-300">SEO Başlık</Label>
-                        <Input id="seo_title" name="seo_title" value={form.seo_title} onChange={handleChange} className={`focus:ring-[${corporateColor}]`} />
+                        <Input id="seo_title" name="seo_title" value={form.seo_title} onChange={handleChange} className="focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="seo_description" className="font-medium dark:text-slate-300">SEO Açıklama</Label>
-                        {/* SEO Açıklaması için Input yerine HTML textarea kullandım */}
-                        <textarea 
-                            id="seo_description" 
-                            name="seo_description" 
-                            value={form.seo_description} 
-                            onChange={handleChange} 
-                            rows={3} 
-                            className={`${inputClassName} focus:ring-[${corporateColor}] min-h-[80px]`}
-                            placeholder="Google arama açıklaması (max 160 karakter)"
-                        />
+                        <Textarea id="seo_description" name="seo_description" value={form.seo_description} onChange={(e) => handleChange(e)} rows={3} className="min-h-[80px] focus-visible:ring-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" style={{ "--ring-color": corporateColor } as React.CSSProperties} />
                     </div>
                 </div>
             </div>
             
             <Separator className="my-6 dark:bg-slate-700" />
             
-            {/* Kapak Görseli ve Yayın Durumu */}
             <div>
                 <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200 mb-3">Görsel ve Yayın Ayarları</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -291,25 +292,22 @@ export default function EditBlogPage() {
                             id="thumbnail_image_button"
                             variant="outline" 
                             size="sm" 
-                            onClick={() => { setImageTarget("thumbnail_image"); setShowMedia(true);}}
+                            onClick={() => setShowMedia(true)} // imageTarget burada direkt thumbnail_image olduğu için ayrıca set etmeye gerek yok gibi duruyor, ama MediaLibrary props'ları gerektiriyorsa eklenebilir. Şimdilik basit tuttum.
                             className="mt-2 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700"
                         >
                             <ImageIcon className="w-4 h-4 mr-2" /> Ortam Kütüphanesinden Seç
                         </Button>
                     </div>
                     <div className="space-y-1.5 pt-1 md:pt-0">
-                        <Label htmlFor="published" className="block mb-2 font-medium dark:text-slate-300">Yayın Durumu</Label>
+                        <Label htmlFor="published_switch" className="block mb-2 font-medium dark:text-slate-300">Yayın Durumu</Label>
                         <div className="flex items-center space-x-2">
-                        {/* HTML Checkbox stilize edildi */}
-                        <input
-                            type="checkbox"
-                            name="published"
+                        <Switch
+                            id="published_switch"
                             checked={form.published}
-                            onChange={handlePublishedChange} // Checkbox için özel handler
-                            id="published"
-                            className={`h-5 w-5 rounded border-gray-300 dark:border-slate-600 text-[${corporateColor}] focus:ring-2 focus:ring-[${corporateColor}] dark:bg-slate-700 dark:checked:bg-[${corporateColor}]`}
+                            onCheckedChange={handleSwitchChange}
+                            className="data-[state=checked]:bg-[#6A3C96]"
                         />
-                        <Label htmlFor="published" className="cursor-pointer text-sm font-medium dark:text-slate-300">
+                        <Label htmlFor="published_switch" className="cursor-pointer text-sm font-medium dark:text-slate-300">
                             {form.published ? "Blog Yazısı Yayında" : "Blog Yazısı Taslak"}
                         </Label>
                         </div>
@@ -329,7 +327,7 @@ export default function EditBlogPage() {
               Sil
             </Button>
             <Button 
-                onClick={handleSubmit} 
+                onClick={handleUpdate} 
                 disabled={isSaving || !form.title.trim() || !form.slug.trim()}
                 className="text-white min-w-[160px] h-11 text-base w-full sm:w-auto order-1 sm:order-2"
                 style={{ backgroundColor: isSaving || !form.title.trim() || !form.slug.trim() ? undefined : corporateColor, opacity: isSaving || !form.title.trim() || !form.slug.trim() ? 0.6 : 1 }}
@@ -341,7 +339,7 @@ export default function EditBlogPage() {
         </Card>
 
         {showMedia && (
-          <MediaLibraryModal // İsim düzeltildi
+          <MediaLibraryModal
             onSelect={handleImageSelect}
             onClose={() => setShowMedia(false)}
           />
