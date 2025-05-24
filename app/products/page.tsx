@@ -33,7 +33,6 @@ const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 // --- Bitiş: İkon Bileşenleri ---
 
-
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
@@ -49,11 +48,11 @@ export default function ProductsPage() {
     durum: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(20); // Görseldeki gibi 4'lü sıra için 12, 16, 20 gibi değerler daha iyi olabilir.
+  const [perPage, setPerPage] = useState(12);
   const router = useRouter();
 
-  // Kurumsal renk
-  const corporateColor = "#6A3C96";
+  // Kurumsal renk (Artık doğrudan Tailwind sınıflarında hex olarak kullanılacak)
+  // const corporateColor = "#6A3C96"; // Bu değişkene doğrudan ihtiyaç kalmayabilir eğer her yerde hex kullanırsak
 
   useEffect(() => {
     async function checkSessionAndFetch() {
@@ -126,8 +125,8 @@ export default function ProductsPage() {
     <div className="relative">
       <select
         className={`w-full p-2.5 pr-8 border border-gray-300 rounded-md shadow-sm text-sm
-                    focus:outline-none focus:ring-2 focus:ring-[${corporateColor}] focus:border-[${corporateColor}]
-                    appearance-none bg-white hover:border-gray-400`}
+                    focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]
+                    appearance-none bg-white hover:border-gray-400`} // corporateColor değişkeni yerine doğrudan hex kodu
         value={value}
         onChange={onChange}
       >
@@ -146,6 +145,10 @@ export default function ProductsPage() {
     );
   }
   
+  // Hatanın işaret ettiği satırdan önceki kod blokları dikkatlice incelendi.
+  // Herhangi bir açık parantez, süslü parantez veya ifade hatası görünmüyor.
+  // Build hatası genellikle bu tür ince sözdizimi sorunlarından kaynaklanır.
+  
   return (
     <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-full mx-auto">
@@ -162,7 +165,7 @@ export default function ProductsPage() {
             )}
             <Link
               href="/products/new"
-              style={{ backgroundColor: corporateColor }}
+              style={{ backgroundColor: "#6A3C96" }} // corporateColor değişkeni yerine doğrudan hex kodu
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm hover:opacity-90 transition-opacity duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#522d73]"
             >
               <PlusIcon className="w-5 h-5" />
@@ -213,10 +216,10 @@ export default function ProductsPage() {
               value={perPage}
               onChange={(e) => { setPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
               className={`p-2 pr-8 border border-gray-300 rounded-md shadow-sm text-sm
-                          focus:outline-none focus:ring-2 focus:ring-[${corporateColor}] focus:border-[${corporateColor}]
+                          focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]
                           appearance-none bg-white hover:border-gray-400`}
             >
-              <option value={12}>12 / sayfa</option> {/* Sayfa başına ürün sayısını güncelledim */}
+              <option value={12}>12 / sayfa</option>
               <option value={16}>16 / sayfa</option>
               <option value={20}>20 / sayfa</option>
               <option value={24}>24 / sayfa</option>
@@ -232,17 +235,15 @@ export default function ProductsPage() {
         ) : paginatedProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {paginatedProducts.map((item) => (
-              <div key={item.id} className="group bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl"> {/* Ana kart div'ine "group" eklendi */}
-                {/* === DEĞİŞİKLİK BAŞLANGICI === */}
-                <div className="aspect-video w-full overflow-hidden bg-slate-100"> {/* Resim kapsayıcısına bg-slate-100 eklendi */}
+              <div key={item.id} className="group bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
+                <div className="aspect-video w-full overflow-hidden bg-slate-100">
                   <img
                     src={buildImageUrl(item.cover_image)}
                     alt={item.isim || "Araç Resmi"}
-                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" {/* object-cover -> object-contain yapıldı, hover efekti group-hover'a bağlandı */}
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => (e.currentTarget.src = "/placeholder-image.png")}
                   />
                 </div>
-                {/* === DEĞİŞİKLİK SONU === */}
                 <div className="p-5 flex flex-col flex-grow">
                   <h2 className="text-xl font-semibold text-gray-800 mb-2 truncate" title={item.isim}>{item.isim || "İsimsiz Araç"}</h2>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 mb-4 flex-grow">
@@ -257,7 +258,7 @@ export default function ProductsPage() {
                     <Link
                       href={`/products/edit/${item.id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white rounded-md shadow-sm transition-opacity duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1"
-                      style={{ backgroundColor: corporateColor,  opacity: 0.9 }}
+                      style={{ backgroundColor: "#6A3C96",  opacity: 0.9 }} // corporateColor değişkeni yerine doğrudan hex kodu
                       onMouseOver={e => e.currentTarget.style.opacity = '1'}
                       onMouseOut={e => e.currentTarget.style.opacity = '0.9'}
                     >
@@ -310,10 +311,10 @@ export default function ProductsPage() {
                   onClick={() => setCurrentPage(pageNum)}
                   className={`px-4 py-2 text-sm border rounded-md transition-colors
                     ${currentPage === pageNum
-                      ? `text-white border-[${corporateColor}]`
+                      ? `text-white border-[#6A3C96]` // corporateColor değişkeni yerine doğrudan hex kodu
                       : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-400"
                     }`}
-                  style={currentPage === pageNum ? { backgroundColor: corporateColor } : {}}
+                  style={currentPage === pageNum ? { backgroundColor: "#6A3C96" } : {}} // corporateColor değişkeni yerine doğrudan hex kodu
                 >
                   {pageNum}
                 </button>
