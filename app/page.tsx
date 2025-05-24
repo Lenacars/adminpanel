@@ -1,39 +1,38 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react"; // useMemo eklendi
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 // shadcn/ui Bileşenleri
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // AvatarImage kaldırıldı, sadece Fallback
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator"; // Ayırıcı için
+import { Separator } from "@/components/ui/separator";
 
-// lucide-react İkonları
+// lucide-react İkonları (Temel ve güvenli ikonlar)
 import { 
-  LayoutDashboard, Users, MessageSquare, Car, Newspaper, // Kart başlıkları için
-  ArrowRight, Loader2, AlertTriangle, Inbox, Star // Diğerleri
+  LayoutDashboard, Users, MessageSquare, Car, Newspaper, 
+  ArrowRight, Loader2, AlertTriangle, Inbox, Star // Star (basit gösterim için)
 } from "lucide-react";
-import { toast } from "@/hooks/use-toast"; // Toast eklendi
+import { toast } from "@/hooks/use-toast";
 
-// Tipler (Mevcut olanlar)
+// Tipler (Sizin kodunuzdaki gibi)
 interface Kullanici {
   id: string;
   ad: string;
   soyad: string;
   email: string;
   created_at: string;
-  auth_user_id: string; // Bu önemli, yorumlardaki user_id ile eşleşiyor
+  auth_user_id: string;
 }
 
 interface Yorum {
   id: string;
   yorum: string;
   created_at: string;
-  user_id: string; // Bu auth_user_id ile eşleşecek
+  user_id: string;
   arac_id: string;
   puan: number;
 }
@@ -50,30 +49,15 @@ interface Blog {
   view_count: number;
 }
 
-// Yorumları zenginleştirmek için yeni tip
 interface EnrichedYorum extends Yorum {
   userName: string;
   userAvatarFallback: string;
   vehicleName: string;
 }
 
-// Yıldız Puanlama Bileşeni (Yorumlar için)
-const StarRatingDisplay = ({ rating, totalStars = 5 }: { rating: number; totalStars?: number }) => {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[...Array(totalStars)].map((_, index) => (
-        <Star
-          key={index}
-          className={`w-3.5 h-3.5 ${index < Math.round(rating) ? 'fill-yellow-400 text-yellow-500' : 'fill-gray-200 text-gray-400 dark:fill-slate-600 dark:text-slate-500'}`}
-        />
-      ))}
-    </div>
-  );
-};
-
 export default function DashboardPage() {
   const [kullanicilar, setKullanicilar] = useState<Kullanici[]>([]);
-  const [yorumlar, setYorumlar] = useState<Yorum[]>([]);
+  const [yorumlar, setYorumlarState] = useState<Yorum[]>([]); // İsim değişikliği
   const [araclar, setAraclar] = useState<Arac[]>([]);
   const [bloglar, setBloglar] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,22 +70,41 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [userData, commentData, vehicleData, blogData] = await Promise.all([
-          supabase.from("kullanicilar").select("id, ad, soyad, email, created_at, auth_user_id").order("created_at", { ascending: false }).limit(5),
-          supabase.from("yorumlar").select("*").order("created_at", { ascending: false }).limit(5),
-          supabase.from("Araclar").select("id, isim, visit_count").order("visit_count", { ascending: false }).limit(5),
-          supabase.from("bloglar").select("id, title, view_count").order("view_count", { ascending: false }).limit(5)
-        ]);
+        // Veri çekme işlemleri (sizin kodunuzdaki gibi)
+        const { data: userData, error: userError } = await supabase
+          .from("kullanicilar")
+          .select("id, ad, soyad, email, created_at, auth_user_id")
+          .order("created_at", { ascending: false }) // Son kullanıcılar için sıralama
+          .limit(5); // Sadece son 5 kullanıcı
 
-        if (userData.error) throw new Error(`Kullanıcılar: ${userData.error.message}`);
-        if (commentData.error) throw new Error(`Yorumlar: ${commentData.error.message}`);
-        if (vehicleData.error) throw new Error(`Araçlar: ${vehicleData.error.message}`);
-        if (blogData.error) throw new Error(`Bloglar: ${blogData.error.message}`);
+        const { data: commentData, error: commentError } = await supabase
+          .from("yorumlar")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(5);
 
-        setKullanicilar(userData.data || []);
-        setYorumlar(commentData.data || []);
-        setAraclar(vehicleData.data || []);
-        setBloglar(blogData.data || []);
+        const { data: vehicleData, error: vehicleError } = await supabase
+          .from("Araclar")
+          .select("id, isim, visit_count")
+          .order("visit_count", { ascending: false }) // Popüler araçlar için sıralama
+          .limit(5); // Sadece en popüler 5 araç
+
+        const { data: blogData, error: blogError } = await supabase
+          .from("bloglar")
+          .select("id, title, view_count")
+          .order("view_count", { ascending: false })
+          .limit(5);
+        
+        // Hata kontrolü
+        if (userError) throw new Error(`Kullanıcılar: ${userError.message}`);
+        if (commentError) throw new Error(`Yorumlar: ${commentError.message}`);
+        if (vehicleError) throw new Error(`Araçlar: ${vehicleError.message}`);
+        if (blogError) throw new Error(`Bloglar: ${blogError.message}`);
+
+        setKullanicilar(userData || []);
+        setYorumlarState(commentData || []); // State adı güncellendi
+        setAraclar(vehicleData || []);
+        setBloglar(blogData || []);
 
       } catch (err: any) {
         console.error("Dashboard verisi alınamadı:", err);
@@ -115,10 +118,17 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const enrichedYorumlar: EnrichedYorum[] = useMemo(() => {
+  // enrichYorumlar fonksiyonu (sizin kodunuzdaki gibi, sadece yorumlar state adı güncellendi)
+  const enrichYorumlar = useMemo((): EnrichedYorum[] => {
     return yorumlar.map((y) => {
       const user = kullanicilar.find((k) => k.auth_user_id === y.user_id);
-      const arac = araclar.find((a) => String(a.id) === String(y.arac_id)); // Araçlar listesinden bul
+      // ÖNEMLİ: Popüler araçlar listesi (araclar state'i) TÜM araçları içermiyorsa,
+      // buradaki arac.find doğru aracı bulamayabilir.
+      // Yorumlardaki araç ID'sine sahip aracın `araclar` state'inde olması gerekir.
+      // Eğer `araclar` state'i sadece top 5'i içeriyorsa, yorumlardaki araç isimleri için
+      // ya tüm araçları çeken ayrı bir state ya da yorumları çekerken join yapmanız gerekir.
+      // Şimdilik mevcut mantığınızı koruyorum.
+      const arac = araclar.find((a) => String(a.id) === String(y.arac_id)); 
       return {
         ...y,
         userName: user ? `${user.ad} ${user.soyad}` : "Bilinmeyen Kullanıcı",
@@ -126,12 +136,12 @@ export default function DashboardPage() {
         vehicleName: arac ? arac.isim : "Bilinmeyen Araç",
       };
     });
-  }, [yorumlar, kullanicilar, araclar]); // araclar'ı dependency'e ekledim
+  }, [yorumlar, kullanicilar, araclar]); // araclar dependency eklendi
 
-  const renderSectionSkeleton = (title: string) => (
+  const CardSkeleton = () => (
     <Card className="shadow-sm dark:bg-slate-850 dark:border-slate-700">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-gray-700 dark:text-slate-200">{title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Skeleton className="h-6 w-3/4" /> <Skeleton className="h-6 w-6 rounded-full" />
       </CardHeader>
       <CardContent className="space-y-3 pt-2">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -149,18 +159,15 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-        <div className="p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-slate-900 min-h-screen">
-            <div className="flex items-center mb-6 pb-4 border-b dark:border-slate-700">
-                <Loader2 className="w-8 h-8 mr-3 animate-spin" style={{color: corporateColor}}/>
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-slate-100">Ana Sayfa Yükleniyor...</h1>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {renderSectionSkeleton("Son Kullanıcılar")}
-                {renderSectionSkeleton("Son Yorumlar")}
-                {renderSectionSkeleton("Popüler Araçlar")}
-                {renderSectionSkeleton("Popüler Bloglar")}
-            </div>
+      <div className="p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-slate-900 min-h-screen">
+        <div className="flex items-center mb-6 pb-4 border-b dark:border-slate-700">
+          <Loader2 className="w-8 h-8 mr-3 animate-spin" style={{ color: corporateColor }} />
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-slate-100">Ana Sayfa Yükleniyor...</h1>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <CardSkeleton /> <CardSkeleton /> <CardSkeleton /> <CardSkeleton />
+        </div>
+      </div>
     );
   }
 
@@ -170,158 +177,123 @@ export default function DashboardPage() {
         <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
         <h2 className="text-2xl font-bold text-red-600 mb-2">Hata Oluştu</h2>
         <p className="text-gray-600 dark:text-slate-400 mb-6">{error}</p>
-        <Button onClick={() => window.location.reload()} variant="outline">Sayfayı Yenile</Button>
+        <Button onClick={() => window.location.reload()} variant="outline" className="dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700">Sayfayı Yenile</Button>
       </div>
     );
   }
-  
-  const renderCardContentList = (items: any[], renderItem: (item: any, index: number) => JSX.Element, emptyMessage: string, icon: JSX.Element) => {
-    if (items.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center h-40 text-center text-gray-500 dark:text-slate-400">
-          {React.cloneElement(icon, { className: "w-10 h-10 mb-2 opacity-50" })}
-          <p className="text-sm">{emptyMessage}</p>
-        </div>
-      );
-    }
-    return (
-      <ScrollArea className="h-[220px] pr-3"> {/* Yükseklik ayarlandı */}
-        <div className="space-y-3">
-          {items.map(renderItem)}
-        </div>
-      </ScrollArea>
-    );
-  };
-
 
   return (
     <div className="p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-slate-900 min-h-screen">
-        <div className="flex items-center justify-between mb-6 pb-4 border-b dark:border-slate-700">
-            <h1 className="text-3xl font-bold flex items-center text-gray-800 dark:text-slate-100">
-            <LayoutDashboard className="w-8 h-8 mr-3" style={{ color: corporateColor }} />
-            Ana Sayfa
-            </h1>
-        </div>
+      <div className="flex items-center justify-between mb-6 pb-4 border-b dark:border-slate-700">
+        <h1 className="text-3xl font-bold flex items-center text-gray-800 dark:text-slate-100">
+          <LayoutDashboard className="w-8 h-8 mr-3" style={{ color: corporateColor }} />
+          Ana Sayfa
+        </h1>
+      </div>
       
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            {/* SON KULLANICILAR */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
-                    <Users className="w-5 h-5 mr-2"/>Son Kullanıcılar
-                </CardTitle>
-                <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
-                    <Link href="/kullanicilar">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
-                </Button>
-            </CardHeader>
-            <CardContent className="pt-1">
-                {renderCardContentList(
-                    kullanicilar,
-                    (user: Kullanici) => (
-                        <div key={user.id} className="flex items-center gap-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
-                            <Avatar className="h-8 w-8 border text-xs dark:border-slate-600">
-                                <AvatarFallback style={{backgroundColor: corporateColor, color: 'white'}}>
-                                    {user.ad?.charAt(0)}{user.soyad?.charAt(0)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={`${user.ad} ${user.soyad}`}>{user.ad} {user.soyad}</p>
-                                <p className="text-xs text-muted-foreground dark:text-slate-400 truncate" title={user.email}>{user.email}</p>
-                            </div>
-                        </div>
-                    ),
-                    "Henüz kayıtlı kullanıcı yok.",
-                    <Users />
-                )}
-            </CardContent>
-            </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* SON KULLANICILAR */}
+        <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
+              <Users className="w-5 h-5 mr-2"/>Son Kullanıcılar
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
+              <Link href="/kullanicilar">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-1 space-y-2 flex-grow">
+            {kullanicilar.length > 0 ? kullanicilar.map((user) => (
+              <div key={user.id} className="flex items-center gap-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
+                <Avatar className="h-8 w-8 border text-xs dark:border-slate-600">
+                  <AvatarFallback style={{backgroundColor: corporateColor, color: 'white'}}>
+                    {(user.ad || '?').charAt(0)}{(user.soyad || '?').charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={`${user.ad} ${user.soyad}`}>{user.ad} {user.soyad}</p>
+                  <p className="text-xs text-muted-foreground dark:text-slate-400 truncate" title={user.email}>{user.email}</p>
+                </div>
+              </div>
+            )) : <p className="text-sm text-center text-gray-500 dark:text-slate-400 py-8">Henüz kullanıcı yok.</p>}
+          </CardContent>
+        </Card>
 
-            {/* SON YORUMLAR */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
-                    <MessageSquare className="w-5 h-5 mr-2"/>Son Yorumlar
-                </CardTitle>
-                <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
-                    <Link href="/kullanicilar/yorumlar">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
-                </Button>
-            </CardHeader>
-            <CardContent className="pt-1">
-                {renderCardContentList(
-                    enrichedYorumlar,
-                    (y: EnrichedYorum) => (
-                        <div key={y.id} className="py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
-                            <div className="flex items-center justify-between mb-0.5">
-                                <div className="flex items-center gap-2">
-                                    <Avatar className="h-7 w-7 border text-xs dark:border-slate-600">
-                                        <AvatarFallback style={{backgroundColor: corporateColor, color: 'white', fontSize: '0.6rem'}}>
-                                            {y.userAvatarFallback}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={y.userName}>{y.userName}</span>
-                                </div>
-                                <StarRatingDisplay rating={y.puan} />
-                            </div>
-                            <p className="text-xs text-muted-foreground dark:text-slate-400 mb-1 truncate" title={y.vehicleName}>Araç: {y.vehicleName}</p>
-                            <p className="text-xs text-gray-700 dark:text-slate-300 line-clamp-2 leading-snug" title={y.yorum}>"{y.yorum}"</p>
-                        </div>
-                    ),
-                    "Henüz yorum yapılmamış.",
-                    <MessageSquare />
-                )}
-            </CardContent>
-            </Card>
+        {/* SON YORUMLAR */}
+        <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
+              <MessageSquare className="w-5 h-5 mr-2"/>Son Yorumlar
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
+              <Link href="/kullanicilar/yorumlar">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-1 space-y-3 flex-grow">
+            {enrichYorumlar.length > 0 ? enrichYorumlar.map((y) => (
+              <div key={y.id} className="py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md border-b dark:border-slate-700 last:border-b-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar className="h-7 w-7 border text-xs dark:border-slate-600">
+                      <AvatarFallback style={{backgroundColor: corporateColor, color: 'white', fontSize: '0.6rem'}}>
+                        {y.userAvatarFallback}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={y.userName}>{y.userName}</span>
+                  </div>
+                  <div className="flex items-center">
+                    {[...Array(5)].map((_, i) => (
+                        <Star key={i} className={`w-3 h-3 ${i < y.puan ? 'fill-yellow-400 text-yellow-500' : 'fill-gray-300 text-gray-400'}`}/>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground dark:text-slate-400 mb-1 truncate" title={y.vehicleName}>Araç: {y.vehicleName}</p>
+                <p className="text-xs text-gray-700 dark:text-slate-300 line-clamp-2 leading-snug" title={y.yorum}>"{y.yorum}"</p>
+              </div>
+            )) : <p className="text-sm text-center text-gray-500 dark:text-slate-400 py-8">Henüz yorum yok.</p>}
+          </CardContent>
+        </Card>
 
-            {/* EN ÇOK ZİYARET EDİLEN ARAÇLAR */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
-                    <Car className="w-5 h-5 mr-2"/>Popüler Araçlar
-                </CardTitle>
-                 <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
-                    <Link href="/products">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
-                </Button>
-            </CardHeader>
-            <CardContent className="pt-1">
-                {renderCardContentList(
-                    araclar, // Zaten sıralı geliyor
-                    (a: Arac) => (
-                        <div key={a.id} className="flex items-center justify-between py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
-                            <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={a.isim}>{a.isim}</p>
-                            <p className="text-xs text-muted-foreground dark:text-slate-400 whitespace-nowrap">{a.visit_count} Görüntülenme</p>
-                        </div>
-                    ),
-                    "Araç verisi bulunamadı.",
-                    <Car />
-                )}
-            </CardContent>
-            </Card>
+        {/* EN ÇOK ZİYARET EDİLEN ARAÇLAR */}
+        <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
+              <Car className="w-5 h-5 mr-2"/>Popüler Araçlar
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
+              <Link href="/products">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-1 space-y-1.5 flex-grow">
+            {araclar.length > 0 ? araclar.map((a) => (
+              <div key={a.id} className="flex items-center justify-between py-1 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
+                <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={a.isim}>{a.isim}</p>
+                <p className="text-xs text-muted-foreground dark:text-slate-400 whitespace-nowrap">{a.visit_count} Görüntülenme</p>
+              </div>
+            )) : <p className="text-sm text-center text-gray-500 dark:text-slate-400 py-8">Popüler araç yok.</p>}
+          </CardContent>
+        </Card>
 
-            {/* EN ÇOK GÖRÜNTÜLENEN BLOGLAR */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
-                    <Newspaper className="w-5 h-5 mr-2"/>Popüler Bloglar
-                </CardTitle>
-                <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
-                    <Link href="/blogs">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
-                </Button>
-            </CardHeader>
-            <CardContent className="pt-1">
-                {renderCardContentList(
-                    bloglar, // Zaten sıralı geliyor
-                    (b: Blog) => (
-                        <div key={b.id} className="flex items-center justify-between py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
-                            <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={b.title}>{b.title}</p>
-                            <p className="text-xs text-muted-foreground dark:text-slate-400 whitespace-nowrap">{b.view_count} Görüntülenme</p>
-                        </div>
-                    ),
-                    "Blog verisi bulunamadı.",
-                    <Newspaper />
-                )}
-            </CardContent>
-            </Card>
-        </div>
+        {/* EN ÇOK GÖRÜNTÜLENEN BLOGLAR */}
+        <Card className="shadow-sm hover:shadow-md transition-shadow dark:bg-slate-850 dark:border-slate-700 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center dark:text-slate-100" style={{ color: corporateColor }}>
+              <Newspaper className="w-5 h-5 mr-2"/>Popüler Bloglar
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm" className="text-xs h-7 px-2 dark:text-slate-300 dark:hover:bg-slate-700" style={{ color: corporateColor }}>
+              <Link href="/blogs">Tümü <ArrowRight className="w-3 h-3 ml-1"/></Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-1 space-y-1.5 flex-grow">
+            {bloglar.length > 0 ? bloglar.map((b) => (
+              <div key={b.id} className="flex items-center justify-between py-1 hover:bg-slate-50 dark:hover:bg-slate-800 px-1 rounded-md">
+                <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={b.title}>{b.title}</p>
+                <p className="text-xs text-muted-foreground dark:text-slate-400 whitespace-nowrap">{b.view_count} Görüntülenme</p>
+              </div>
+            )) : <p className="text-sm text-center text-gray-500 dark:text-slate-400 py-8">Popüler blog yazısı yok.</p>}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
