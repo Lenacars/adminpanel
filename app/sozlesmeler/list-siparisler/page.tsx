@@ -15,17 +15,24 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton"; // Skeleton eklendi
+import { Skeleton } from "@/components/ui/skeleton";
 
 // lucide-react İkonları
-import { FilePdf, Download, Loader2, Inbox, AlertTriangle, ListChecks } from "lucide-react";
+// !! DİKKAT: Hata alıyorsanız, önce FilePdf ve ListChecks importlarını ve kullanımlarını geçici olarak kaldırıp test edin.
+import { 
+  FilePdf,       // Bu ikonu test edin
+  Download, 
+  Loader2, 
+  Inbox, 
+  AlertTriangle, 
+  ListChecks     // Bu ikonu test edin
+} from "lucide-react";
 
 interface SiparisFormKaydi {
   id: string;
   created_at: string;
   musteri_adi: string;
   pdf_url: string;
-  // Diğer olası alanlar buraya eklenebilir
 }
 
 export default function ListSiparisFormlari() {
@@ -60,12 +67,11 @@ export default function ListSiparisFormlari() {
   const renderTableContent = () => {
     if (loading) {
       return (
-        // Skeleton loader satırları
         Array.from({ length: 5 }).map((_, index) => (
           <TableRow key={`skeleton-${index}`}>
             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
             <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-            <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+            <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell> {/* Genişliği PDF Görüntüle butonuna göre ayarladım */}
           </TableRow>
         ))
       );
@@ -108,9 +114,12 @@ export default function ListSiparisFormlari() {
         </TableCell>
         <TableCell className="font-medium py-3">{item.musteri_adi || "-"}</TableCell>
         <TableCell className="text-right py-3">
-          <Button asChild variant="outline" size="sm" className="text-xs px-2.5 py-1 hover:border-current" style={{color: corporateColor, borderColor: corporateColor}}>
+          <Button asChild variant="outline" size="sm" className="text-xs px-2.5 py-1.5 hover:border-current" style={{color: corporateColor, borderColor: corporateColor}}>
             <Link href={item.pdf_url} target="_blank" rel="noopener noreferrer">
-              <FilePdf className="w-3.5 h-3.5 mr-1.5" /> PDF Görüntüle
+              {/* !! DİKKAT: Hata alıyorsanız, aşağıdaki FilePdf ikonunu geçici olarak Download ile değiştirip test edin */}
+              <FilePdf className="w-3.5 h-3.5 mr-1.5" /> 
+              {/* <Download className="w-3.5 h-3.5 mr-1.5" /> Test için */}
+              PDF Görüntüle
             </Link>
           </Button>
         </TableCell>
@@ -123,7 +132,9 @@ export default function ListSiparisFormlari() {
       <Card className="w-full max-w-4xl mx-auto shadow-xl">
         <CardHeader className="border-b">
           <div className="flex items-center">
+            {/* !! DİKKAT: Hata alıyorsanız, aşağıdaki ListChecks ikonunu geçici olarak Download ile değiştirip test edin */}
             <ListChecks className="w-7 h-7 mr-2.5" style={{ color: corporateColor }}/>
+            {/* <Download className="w-7 h-7 mr-2.5" style={{ color: corporateColor }}/> Test için */}
             <CardTitle className="text-2xl font-bold" style={{ color: corporateColor }}>
               Oluşturulmuş Sipariş Formları
             </CardTitle>
@@ -132,11 +143,11 @@ export default function ListSiparisFormlari() {
             Daha önce oluşturulmuş tüm sipariş onay formlarını buradan görüntüleyebilirsiniz.
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-0"> {/* Tablo başlığı ile içerik arasında boşluk olmaması için pt-0 */}
+        <CardContent className="pt-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="hover:bg-transparent"> {/* Başlık satırında hover efekti olmasın */}
+                <TableRow className="hover:bg-transparent">
                   <TableHead className="font-semibold py-3.5" style={{color: corporateColor}}>Oluşturulma Tarihi</TableHead>
                   <TableHead className="font-semibold py-3.5" style={{color: corporateColor}}>Müşteri Adı</TableHead>
                   <TableHead className="text-right font-semibold py-3.5" style={{color: corporateColor}}>PDF Dosyası</TableHead>
