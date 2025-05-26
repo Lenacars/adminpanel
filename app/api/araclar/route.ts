@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { corsHeaders } from "@/lib/cors";
+import { v4 as uuidv4 } from "uuid";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,38 +29,61 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json(); // JSON olarak gelen ürün listesi
+    const body = await request.json();
     let successCount = 0;
 
     for (const item of body) {
-      const { model, yakit, vites, stok_kodu, cover_image, gallery_images, varyasyonlar } = item;
+      const {
+        model,
+        yakit,
+        vites,
+        stok_kodu,
+        cover_image,
+        gallery_images,
+        varyasyonlar = []
+      } = item;
 
-      const { data: arac, error } = await supabase.from("Araclar").insert({
-        title: model,
+      const arac_id = uuidv4();
+      const fiyat = parseFloat(varyasyonlar[0]?.fiyat || "0");
+
+      const { error: insertError } = await supabase.from("Araclar").insert({
+        id: arac_id,
+        isim: model,
         yakit_turu: yakit,
         vites,
         stok_kodu,
         cover_image: cover_image?.replace(/^\/+/, ""),
-        gallery_images: gallery_images?.map((img: string) => img.replace(/^\/+/, ""))
-      }).select().single();
+        gallery_images: gallery_images?.map((img: string) => img.replace(/^\/+/, "")),
+        fiyat
+      });
 
-      if (error || !arac) continue;
+      if (insertError) {
+        console.error("❌ Araç ekleme hatası:", insertError.message);
+        continue;
+      }
 
-      for (const varyasyon of varyasyonlar || []) {
-        await supabase.from("variations").insert({
-          arac_id: arac.id,
-          fiyat: Number(varyasyon.fiyat),
-          kilometre: varyasyon.km,
-          sure: varyasyon.sure,
-          status: "yayinda"
-        });
+      const varyasyonInsert = varyasyonlar.map((v: any) => ({
+        id: uuidv4(),
+        arac_id,
+        fiyat: parseFloat(v.fiyat || "0"),
+        kilometre: v.km,
+        sure: v.sure,
+        status: "Yayında"
+      }));
+
+      if (varyasyonInsert.length > 0) {
+        const { error: varError } = await supabase.from("variations").insert(varyasyonInsert);
+        if (varError) {
+          console.error("⚠️ Varyasyon ekleme hatası:", varError.message);
+        }
       }
 
       successCount++;
     }
 
-    return NextResponse.json({ message: `${successCount} ürün eklendi.` }, { headers: corsHeaders });
+    return NextResponse.json({ message: `${successCount} ürün başarıyla eklendi.` }, { headers: corsHeaders });
   } catch (error: any) {
+    console.error("🔥 Hata:", error);
     return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
   }
 }
