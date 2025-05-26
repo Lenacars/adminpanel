@@ -1,19 +1,18 @@
 "use server";
 import xlsx from "xlsx";
 import { createClient } from "@supabase/supabase-js";
-import path from "path";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function convertExcelToJson(buffer: Buffer) {
+export async function convertExcelToJson(buffer: Buffer, firmaKodu: string) {
   const workbook = xlsx.read(buffer, { type: "buffer" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw = xlsx.utils.sheet_to_json(sheet);
 
-  const { data: storageList, error } = await supabase.storage
+  const { data: storageList } = await supabase.storage
     .from("images")
     .list("", { limit: 1000 });
 
@@ -30,6 +29,7 @@ export async function convertExcelToJson(buffer: Buffer) {
   }
 
   const grouped: Record<string, any> = {};
+  let index = 1001;
 
   for (const row of raw) {
     const model = String(row["Marka / Model"] || "").trim();
@@ -48,7 +48,9 @@ export async function convertExcelToJson(buffer: Buffer) {
         yakit,
         vites,
         varyasyonlar: [],
+        stok_kodu: `${firmaKodu}${String(index).padStart(5, "0")}`,
       };
+      index++;
     }
 
     grouped[key].varyasyonlar.push({ sure, km, fiyat });
