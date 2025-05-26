@@ -26,14 +26,13 @@ export default function UploadPage() {
     console.log("🏷️ Firma değişti:", firma);
     console.log("📤 Yükleme başlatıldı");
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    console.log("📦 Dosya buffer'a çevrildi. Boyut:", buffer.length);
+    const arrayBuffer = await file.arrayBuffer(); // ✅ sadece arrayBuffer kullanıyoruz
+    console.log("📦 Dosya buffer'a çevrildi. Boyut:", arrayBuffer.byteLength);
 
     setLoading(true);
 
     try {
-      const json = await convertExcelToJson(buffer, firma);
+      const json = await convertExcelToJson(arrayBuffer, firma);
       console.log("✅ Excel → JSON başarıyla dönüştürüldü:", json);
 
       const res = await fetch("/api/araclar", {
