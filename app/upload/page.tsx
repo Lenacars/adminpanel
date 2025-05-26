@@ -19,40 +19,30 @@ export default function UploadPage() {
   const [result, setResult] = useState("");
 
   const handleSubmit = async () => {
-    console.log("🟡 Yükleme başlatıldı");
-    if (!file) {
-      console.warn("⛔ Dosya seçilmedi.");
-      alert("Lütfen bir Excel dosyası seçin.");
-      return;
-    }
+    if (!file) return alert("Lütfen bir Excel dosyası seçin.");
+    console.clear();
 
-    console.log("📂 Seçilen dosya:", file.name);
-    console.log("🏢 Seçilen firma kodu:", firma);
+    console.log("📁 Dosya seçildi:", file.name, file.size, "byte");
+    console.log("🏷️ Firma değişti:", firma);
+    console.log("📤 Yükleme başlatıldı");
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    console.log("📦 Dosya buffer'a çevrildi. Boyut:", buffer.length);
 
     setLoading(true);
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      console.log("📦 Dosya buffer'a çevrildi. Boyut:", buffer.byteLength);
-
-      // 1. JSON verisini oluştur
       const json = await convertExcelToJson(buffer, firma);
-      console.log("✅ JSON başarıyla oluşturuldu:");
-      console.log(json);
+      console.log("✅ Excel → JSON başarıyla dönüştürüldü:", json);
 
-      // 2. Supabase'e POST et
-      console.log("🚀 Supabase'e gönderiliyor...");
       const res = await fetch("/api/araclar", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(json),
       });
 
       const data = await res.json();
-      console.log("📥 Supabase yanıtı:", data);
 
       if (res.ok) {
         alert(`✅ ${data.message}`);
@@ -60,12 +50,12 @@ export default function UploadPage() {
         alert(`❌ Hata: ${data.error}`);
       }
 
+      console.log("🧾 Supabase yanıtı:", data);
       setResult(JSON.stringify(data, null, 2));
     } catch (err) {
       alert("❌ Dönüştürme hatası.");
-      console.error("⛔ Dönüştürme sırasında hata:", err);
+      console.error("🔥 Dönüştürme sırasında hata:", err);
     } finally {
-      console.log("✅ Yükleme işlemi tamamlandı.");
       setLoading(false);
     }
   };
@@ -74,40 +64,21 @@ export default function UploadPage() {
     <div style={{ padding: 40 }}>
       <h2>Excel'den Toplu Ürün Yükle (.xlsx)</h2>
 
-      <div style={{ marginBottom: 10 }}>
-        <label><strong>Firma Seç:</strong></label><br />
-        <select
-          value={firma}
-          onChange={(e) => {
-            setFirma(e.target.value);
-            console.log("🏢 Firma değişti:", e.target.value);
-          }}
-        >
-          {FIRMALAR.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <label><strong>Firma Seç:</strong></label><br />
+      <select value={firma} onChange={(e) => setFirma(e.target.value)}>
+        {FIRMALAR.map((f) => (
+          <option key={f.value} value={f.value}>{f.label}</option>
+        ))}
+      </select>
 
+      <br /><br />
       <input
         type="file"
         accept=".xlsx"
-        onChange={(e) => {
-          const selectedFile = e.target.files?.[0] || null;
-          setFile(selectedFile);
-          if (selectedFile) {
-            console.log("📁 Dosya seçildi:", selectedFile.name, selectedFile.size, "byte");
-          }
-        }}
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
       />
 
-      <button
-        onClick={handleSubmit}
-        style={{ marginLeft: 10 }}
-        disabled={loading}
-      >
+      <button onClick={handleSubmit} disabled={loading} style={{ marginLeft: 10 }}>
         {loading ? "Yükleniyor..." : "Dönüştür ve Yükle"}
       </button>
 
