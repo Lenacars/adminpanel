@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { corsHeaders } from "@/lib/cors";
 import { v4 as uuidv4 } from "uuid";
 
