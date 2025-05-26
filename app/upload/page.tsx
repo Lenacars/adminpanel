@@ -19,20 +19,30 @@ export default function UploadPage() {
   const [result, setResult] = useState("");
 
   const handleSubmit = async () => {
+    console.log("🟡 Yükleme başlatıldı");
     if (!file) {
+      console.warn("⛔ Dosya seçilmedi.");
       alert("Lütfen bir Excel dosyası seçin.");
       return;
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    console.log("📂 Seçilen dosya:", file.name);
+    console.log("🏢 Seçilen firma kodu:", firma);
+
     setLoading(true);
 
     try {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      console.log("📦 Dosya buffer'a çevrildi. Boyut:", buffer.byteLength);
+
       // 1. JSON verisini oluştur
       const json = await convertExcelToJson(buffer, firma);
+      console.log("✅ JSON başarıyla oluşturuldu:");
+      console.log(json);
 
       // 2. Supabase'e POST et
+      console.log("🚀 Supabase'e gönderiliyor...");
       const res = await fetch("/api/araclar", {
         method: "POST",
         headers: {
@@ -42,6 +52,7 @@ export default function UploadPage() {
       });
 
       const data = await res.json();
+      console.log("📥 Supabase yanıtı:", data);
 
       if (res.ok) {
         alert(`✅ ${data.message}`);
@@ -52,8 +63,9 @@ export default function UploadPage() {
       setResult(JSON.stringify(data, null, 2));
     } catch (err) {
       alert("❌ Dönüştürme hatası.");
-      console.error("Dönüştürme hatası:", err);
+      console.error("⛔ Dönüştürme sırasında hata:", err);
     } finally {
+      console.log("✅ Yükleme işlemi tamamlandı.");
       setLoading(false);
     }
   };
@@ -64,7 +76,13 @@ export default function UploadPage() {
 
       <div style={{ marginBottom: 10 }}>
         <label><strong>Firma Seç:</strong></label><br />
-        <select value={firma} onChange={(e) => setFirma(e.target.value)}>
+        <select
+          value={firma}
+          onChange={(e) => {
+            setFirma(e.target.value);
+            console.log("🏢 Firma değişti:", e.target.value);
+          }}
+        >
           {FIRMALAR.map((f) => (
             <option key={f.value} value={f.value}>
               {f.label}
@@ -76,7 +94,13 @@ export default function UploadPage() {
       <input
         type="file"
         accept=".xlsx"
-        onChange={(e) => setFile(e.target.files?.[0] || null)}
+        onChange={(e) => {
+          const selectedFile = e.target.files?.[0] || null;
+          setFile(selectedFile);
+          if (selectedFile) {
+            console.log("📁 Dosya seçildi:", selectedFile.name, selectedFile.size, "byte");
+          }
+        }}
       />
 
       <button
