@@ -36,7 +36,7 @@ const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(""); // Araç adı için arama
   const [session, setSession] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -46,13 +46,11 @@ export default function ProductsPage() {
     segment: "",
     bodyType: "",
     durum: "",
+    stok_kodu: "", // <-- YENİ: Stok kodu filtresi
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(12);
   const router = useRouter();
-
-  // Kurumsal renk (Artık doğrudan Tailwind sınıflarında hex olarak kullanılacak)
-  // const corporateColor = "#6A3C96"; // Bu değişkene doğrudan ihtiyaç kalmayabilir eğer her yerde hex kullanırsak
 
   useEffect(() => {
     async function checkSessionAndFetch() {
@@ -63,7 +61,8 @@ export default function ProductsPage() {
         router.push("/login");
         return;
       }
-      const { data, error } = await supabase.from("Araclar").select("*").order('created_at', { ascending: false });
+      // Örnek olarak stok_kodu alanını da seçiyoruz. Veritabanınızda bu alanın olduğundan emin olun.
+      const { data, error } = await supabase.from("Araclar").select("*, stok_kodu").order('created_at', { ascending: false });
       if (!error) {
         setProducts(data);
         setFiltered(data);
@@ -83,6 +82,7 @@ export default function ProductsPage() {
       (!filters.segment || p.segment === filters.segment) &&
       (!filters.bodyType || p.bodyType === filters.bodyType) &&
       (!filters.durum || p.durum === filters.durum) &&
+      (!filters.stok_kodu || p.stok_kodu?.toLowerCase().includes(filters.stok_kodu.toLowerCase())) && // <-- YENİ: Stok kodu ile filtreleme
       (!search || p.isim?.toLowerCase().includes(search.toLowerCase()))
     );
     setFiltered(results);
@@ -125,8 +125,8 @@ export default function ProductsPage() {
     <div className="relative">
       <select
         className={`w-full p-2.5 pr-8 border border-gray-300 rounded-md shadow-sm text-sm
-                    focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]
-                    appearance-none bg-white hover:border-gray-400`} // corporateColor değişkeni yerine doğrudan hex kodu
+                  focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]
+                  appearance-none bg-white hover:border-gray-400`}
         value={value}
         onChange={onChange}
       >
@@ -145,10 +145,6 @@ export default function ProductsPage() {
     );
   }
   
-  // Hatanın işaret ettiği satırdan önceki kod blokları dikkatlice incelendi.
-  // Herhangi bir açık parantez, süslü parantez veya ifade hatası görünmüyor.
-  // Build hatası genellikle bu tür ince sözdizimi sorunlarından kaynaklanır.
-  
   return (
     <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-full mx-auto">
@@ -165,7 +161,7 @@ export default function ProductsPage() {
             )}
             <Link
               href="/products/new"
-              style={{ backgroundColor: "#6A3C96" }} // corporateColor değişkeni yerine doğrudan hex kodu
+              style={{ backgroundColor: "#6A3C96" }}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm hover:opacity-90 transition-opacity duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#522d73]"
             >
               <PlusIcon className="w-5 h-5" />
@@ -175,7 +171,8 @@ export default function ProductsPage() {
         </div>
 
         <div className="mb-6 p-4 bg-white rounded-lg shadow">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 items-end">
+          {/* Filtreler için grid yapısını md:grid-cols-4 olarak güncelledik, böylece 8 eleman sığabilir (2 satırda) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
             <FilterSelect value={filters.yakit} onChange={(e) => setFilters({ ...filters, yakit: e.target.value })} defaultOption="Tüm Yakıtlar">
               <option value="Benzin">Benzin</option> <option value="Dizel">Dizel</option> <option value="Elektrik">Elektrik</option> <option value="Hibrit">Hibrit</option> <option value="Benzin + LPG">Benzin + LPG</option>
             </FilterSelect>
@@ -194,7 +191,21 @@ export default function ProductsPage() {
             <FilterSelect value={filters.durum} onChange={(e) => setFilters({ ...filters, durum: e.target.value })} defaultOption="Tüm Durumlar">
               <option value="Sıfır">Sıfır</option> <option value="İkinci El">İkinci El</option>
             </FilterSelect>
-            <div className="relative lg:col-span-1 xl:col-span-1">
+            
+            {/* <-- YENİ: Stok Kodu Arama Alanı --> */}
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full p-2.5 pl-10 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]"
+                value={filters.stok_kodu}
+                onChange={(e) => setFilters({ ...filters, stok_kodu: e.target.value })}
+                placeholder="Stok kodu ile ara..."
+              />
+              <SearchIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            </div>
+
+            {/* Araç Adıyla Arama Alanı (Bu zaten vardı) */}
+            <div className="relative">
               <input
                 type="text"
                 className="w-full p-2.5 pl-10 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]"
@@ -253,12 +264,14 @@ export default function ProductsPage() {
                     <p><span className="font-medium text-gray-700">Segment:</span> {item.segment || "-"}</p>
                     <p><span className="font-medium text-gray-700">Kasa:</span> {item.bodyType || "-"}</p>
                     <p><span className="font-medium text-gray-700">Durum:</span> {item.durum || "-"}</p>
+                    {/* <-- YENİ: Stok Kodu Gösterimi --> */}
+                    <p><span className="font-medium text-gray-700">Stok Kodu:</span> {item.stok_kodu || "-"}</p>
                   </div>
                   <div className="mt-auto pt-3 border-t border-gray-100 flex justify-end items-center gap-3">
                     <Link
                       href={`/products/edit/${item.id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white rounded-md shadow-sm transition-opacity duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1"
-                      style={{ backgroundColor: "#6A3C96",  opacity: 0.9 }} // corporateColor değişkeni yerine doğrudan hex kodu
+                      style={{ backgroundColor: "#6A3C96",  opacity: 0.9 }}
                       onMouseOver={e => e.currentTarget.style.opacity = '1'}
                       onMouseOut={e => e.currentTarget.style.opacity = '0.9'}
                     >
@@ -311,10 +324,10 @@ export default function ProductsPage() {
                   onClick={() => setCurrentPage(pageNum)}
                   className={`px-4 py-2 text-sm border rounded-md transition-colors
                     ${currentPage === pageNum
-                      ? `text-white border-[#6A3C96]` // corporateColor değişkeni yerine doğrudan hex kodu
+                      ? `text-white border-[#6A3C96]` 
                       : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-400"
                     }`}
-                  style={currentPage === pageNum ? { backgroundColor: "#6A3C96" } : {}} // corporateColor değişkeni yerine doğrudan hex kodu
+                  style={currentPage === pageNum ? { backgroundColor: "#6A3C96" } : {}}
                 >
                   {pageNum}
                 </button>
