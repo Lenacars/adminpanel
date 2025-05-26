@@ -7,6 +7,27 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function modelKeyFromModel(model: string): string {
+  // Modelin anahtar kelimesini (örneğin 'arona', 'corolla', 'focus') bul
+  const lower = model.toLocaleLowerCase("tr-TR");
+  // Türkçe karakterleri sadeleştir
+  const simple = lower
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u")
+    .replace(/ğ/g, "g")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
+  // Kelimeleri ayırıp marka ismini atla, ikinci veya üçüncü kelime model oluyor genelde
+  const parts = simple.split(/\s+/).filter(Boolean);
+  // Genellikle marka + model + paket şeklinde olur
+  if (parts.length > 1) {
+    // "seat arona", "opel corsa", "ford focus"
+    return parts[1];
+  }
+  return parts[0]; // fallback
+}
+
 export async function convertExcelToJson(buffer: Buffer, firmaKodu: string) {
   const workbook = xlsx.read(buffer, { type: "buffer" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -21,35 +42,25 @@ export async function convertExcelToJson(buffer: Buffer, firmaKodu: string) {
     throw new Error("Supabase Storage görselleri okunamadı.");
   }
 
-  const files = (storageList || []).map((f) => f.name);
+  // Dosya isimlerini sadeleştir
+  const files = (storageList || []).map((f) => f.name.toLocaleLowerCase("tr-TR"));
   const baseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/`;
 
-  // Excel satırlarını gruplama
   const grouped: Record<string, any> = {};
   let index = 1001;
 
   for (const row of raw) {
     const model = String(row["Marka / Model"] || "").trim();
+    if (!model) continue;
+    const key = modelKeyFromModel(model);
+
     const sure = String(row["Süre (Ay)"] || "").trim();
     const yakit = String(row["Yakıt Tipi"] || "").trim();
     const vites = String(row["Vites"] || "").trim();
     const km = String(row["Km / Yıl"] || "").trim();
     const fiyat = String(row["Kiralama Bedeli *"] || "").trim();
 
-    if (!model || !fiyat) continue;
-
-    // Modeli normalize et: örn. 'arona'
-    const anahtar = model
-      .toLocaleLowerCase("tr-TR")
-      .replace(/[^a-z0-9ğüşöçıİĞÜŞÖÇ]/gi, " ")
-      .split(" ")
-      .filter(Boolean)
-      .find((word) => word.length > 2);
-
-    if (!anahtar) continue;
-
-    // Gruplama anahtarı olarak sadece model adını kullanıyoruz
-    const key = anahtar;
+    if (!fiyat) continue;
 
     if (!grouped[key]) {
       grouped[key] = {
@@ -65,29 +76,34 @@ export async function convertExcelToJson(buffer: Buffer, firmaKodu: string) {
     grouped[key].varyasyonlar.push({ sure, km, fiyat });
   }
 
-  // Her model için kapak ve galeri görseli bul
+  // Her model için görsel bulma - log ekliyoruz!
   for (const key of Object.keys(grouped)) {
-    const anahtar = key;
-    // 'arona-head.webp' gibi olanı kapak olarak bul
-    const cover = files.find(
-      (f) => f.toLocaleLowerCase("tr-TR").includes(anahtar) && f.toLocaleLowerCase("tr-TR").includes("head")
-    );
+    // Tüm dosya isimlerini küçük harf ve tireli yapıyoruz
+    // Kapak: "{modelKey}-head.webp"
+    // Galeri: "{modelKey}-(herşey).webp", head hariç
+    const modelKey = key.replace(/[^a-z0-9]/g, "");
 
-    // 'arona' içeren ama 'head' olmayanlar galeriye eklenir
+    const cover = files.find((f) =>
+      f.includes(modelKey + "-head")
+    );
     const gallery = files
       .filter(
-        (f) =>
-          f.toLocaleLowerCase("tr-TR").includes(anahtar) &&
-          !f.toLocaleLowerCase("tr-TR").includes("head")
+        (f) => f.includes(modelKey) && !f.includes("-head")
       )
       .map((f) => baseUrl + f);
 
-    grouped[anahtar].cover_image = cover ? baseUrl + cover : null;
-    grouped[anahtar].gallery_images = gallery;
+    console.log(`Model: ${grouped[key].model} → Anahtar: ${modelKey}`);
+    console.log("Bulunan cover:", cover);
+    console.log("Galeri:", gallery);
+
+    grouped[key].cover_image = cover ? baseUrl + cover : null;
+    grouped[key].gallery_images = gallery;
   }
 
-  // Sonuç JSON
   const enriched = Object.values(grouped);
+
+  // Sonucu görsel log ile gösterelim
+  console.log("Oluşturulan enriched veri:", enriched);
 
   return enriched;
 }
