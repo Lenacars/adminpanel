@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { convertExcelToJson } from "@/scripts/convert-excel-to-json";
 
 const FIRMALAR = [
   { label: "LeasePlan", value: "LP" },
@@ -19,43 +18,44 @@ export default function UploadPage() {
   const [result, setResult] = useState("");
 
   const handleSubmit = async () => {
-    if (!file) return alert("Lütfen bir Excel dosyası seçin.");
-    console.clear();
-
-    console.log("📁 Dosya seçildi:", file.name, file.size, "byte");
-    console.log("🏷️ Firma değişti:", firma);
-    console.log("📤 Yükleme başlatıldı");
-
-    const arrayBuffer = await file.arrayBuffer(); // ✅ sadece arrayBuffer kullanıyoruz
-    console.log("📦 Dosya buffer'a çevrildi. Boyut:", arrayBuffer.byteLength);
+    if (!file) {
+      alert("Lütfen bir Excel dosyası seçin.");
+      return;
+    }
 
     setLoading(true);
+    setResult("");
+    console.clear();
 
     try {
-      const json = await convertExcelToJson(arrayBuffer, firma);
-      console.log("✅ Excel → JSON başarıyla dönüştürüldü:", json);
+      console.log("📁 Dosya seçildi:", file.name, file.size, "byte");
+      console.log("🏷️ Firma değişti:", firma);
 
-      const res = await fetch("/api/araclar", {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("firma", firma);
+
+      console.log("🚀 API'ye istek gönderiliyor...");
+      const res = await fetch("/api/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(json),
+        body: formData,
       });
 
       const data = await res.json();
-
       if (res.ok) {
         alert(`✅ ${data.message}`);
+        console.log("🧾 Başarılı yanıt:", data);
       } else {
         alert(`❌ Hata: ${data.error}`);
+        console.error("🚨 Hata:", data.error);
       }
-
-      console.log("🧾 Supabase yanıtı:", data);
       setResult(JSON.stringify(data, null, 2));
     } catch (err) {
-      alert("❌ Dönüştürme hatası.");
-      console.error("🔥 Dönüştürme sırasında hata:", err);
+      alert("❌ Yükleme veya dönüşüm hatası.");
+      console.error("🔥 try/catch:", err);
     } finally {
       setLoading(false);
+      console.log("⏹️ Yükleme işlemi tamamlandı.");
     }
   };
 
@@ -78,7 +78,7 @@ export default function UploadPage() {
       />
 
       <button onClick={handleSubmit} disabled={loading} style={{ marginLeft: 10 }}>
-        {loading ? "Yükleniyor..." : "Dönüştür ve Yükle"}
+        {loading ? "Yükleniyor..." : "Yükle"}
       </button>
 
       {result && (
