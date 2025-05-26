@@ -1,3 +1,4 @@
+"use server";
 import xlsx from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 
@@ -6,11 +7,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function convertExcelToJson(buffer: Buffer, firmaKodu: string) {
-  const workbook = xlsx.read(buffer, { type: "buffer" });
+export async function convertExcelToJson(buffer: ArrayBuffer, firmaKodu: string) {
+  const workbook = xlsx.read(buffer, { type: "array" }); // ✅ "array" tipi kullanıldı
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw = xlsx.utils.sheet_to_json(sheet);
-  const { data: storageList } = await supabase.storage.from("images").list("", { limit: 1000 });
+
+  const { data: storageList } = await supabase.storage
+    .from("images")
+    .list("", { limit: 1000 });
 
   const files = (storageList || []).map((f) => f.name);
   const baseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/`;
@@ -38,7 +42,6 @@ export async function convertExcelToJson(buffer: Buffer, firmaKodu: string) {
     if (!model || !fiyat) continue;
 
     const key = `${normalize(model)}__${normalize(yakit)}__${normalize(vites)}`;
-
     if (!grouped[key]) {
       grouped[key] = {
         model,
