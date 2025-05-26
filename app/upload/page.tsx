@@ -19,18 +19,39 @@ export default function UploadPage() {
   const [result, setResult] = useState("");
 
   const handleSubmit = async () => {
-    if (!file) return alert("Lütfen bir Excel dosyası seçin.");
+    if (!file) {
+      alert("Lütfen bir Excel dosyası seçin.");
+      return;
+    }
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     setLoading(true);
 
     try {
+      // 1. JSON verisini oluştur
       const json = await convertExcelToJson(buffer, firma);
-      setResult(JSON.stringify(json, null, 2));
-      alert("✅ JSON başarıyla oluşturuldu!");
+
+      // 2. Supabase'e POST et
+      const res = await fetch("/api/araclar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(json),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert(`✅ ${data.message}`);
+      } else {
+        alert(`❌ Hata: ${data.error}`);
+      }
+
+      setResult(JSON.stringify(data, null, 2));
     } catch (err) {
-      alert("Hata oluştu.");
+      alert("❌ Dönüştürme hatası.");
       console.error("Dönüştürme hatası:", err);
     } finally {
       setLoading(false);
@@ -39,30 +60,35 @@ export default function UploadPage() {
 
   return (
     <div style={{ padding: 40 }}>
-      <h2>Excel Yükle (.xlsx)</h2>
+      <h2>Excel'den Toplu Ürün Yükle (.xlsx)</h2>
 
-      <label>Firma Seç:</label>
-      <select value={firma} onChange={(e) => setFirma(e.target.value)}>
-        {FIRMALAR.map((f) => (
-          <option key={f.value} value={f.value}>
-            {f.label}
-          </option>
-        ))}
-      </select>
-
-      <br /><br />
+      <div style={{ marginBottom: 10 }}>
+        <label><strong>Firma Seç:</strong></label><br />
+        <select value={firma} onChange={(e) => setFirma(e.target.value)}>
+          {FIRMALAR.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <input
         type="file"
         accept=".xlsx"
         onChange={(e) => setFile(e.target.files?.[0] || null)}
       />
-      <button onClick={handleSubmit} style={{ marginLeft: 10 }} disabled={loading}>
-        {loading ? "Yükleniyor..." : "Dönüştür"}
+
+      <button
+        onClick={handleSubmit}
+        style={{ marginLeft: 10 }}
+        disabled={loading}
+      >
+        {loading ? "Yükleniyor..." : "Dönüştür ve Yükle"}
       </button>
 
       {result && (
-        <pre style={{ marginTop: 20, background: "#f4f4f4", padding: 10 }}>
+        <pre style={{ marginTop: 20, background: "#f4f4f4", padding: 10, whiteSpace: "pre-wrap" }}>
           {result}
         </pre>
       )}
