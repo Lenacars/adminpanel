@@ -36,7 +36,7 @@ const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
-  const [search, setSearch] = useState(""); // Araç adı için arama
+  const [search, setSearch] = useState("");
   const [session, setSession] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -46,11 +46,14 @@ export default function ProductsPage() {
     segment: "",
     bodyType: "",
     durum: "",
-    stok_kodu: "", // <-- YENİ: Stok kodu filtresi
+    stok_kodu: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(12);
+  const [perPage, setPerPage] = useState(12); // 0 "Tümünü Göster" anlamına gelecek
   const router = useRouter();
+
+  // --- YENİ: Toplu silme için state ---
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   useEffect(() => {
     async function checkSessionAndFetch() {
@@ -61,11 +64,10 @@ export default function ProductsPage() {
         router.push("/login");
         return;
       }
-      // Örnek olarak stok_kodu alanını da seçiyoruz. Veritabanınızda bu alanın olduğundan emin olun.
       const { data, error } = await supabase.from("Araclar").select("*, stok_kodu").order('created_at', { ascending: false });
       if (!error) {
         setProducts(data);
-        setFiltered(data);
+        setFiltered(data); // Başlangıçta tüm ürünler filtrelenmiş olarak ayarlanır
       } else {
         console.error("Error fetching products:", error);
       }
@@ -82,19 +84,31 @@ export default function ProductsPage() {
       (!filters.segment || p.segment === filters.segment) &&
       (!filters.bodyType || p.bodyType === filters.bodyType) &&
       (!filters.durum || p.durum === filters.durum) &&
-      (!filters.stok_kodu || p.stok_kodu?.toLowerCase().includes(filters.stok_kodu.toLowerCase())) && // <-- YENİ: Stok kodu ile filtreleme
+      (!filters.stok_kodu || p.stok_kodu?.toLowerCase().includes(filters.stok_kodu.toLowerCase())) &&
       (!search || p.isim?.toLowerCase().includes(search.toLowerCase()))
     );
     setFiltered(results);
-    setCurrentPage(1);
+    setCurrentPage(1); // Filtreler değiştiğinde ilk sayfaya dön
+    setSelectedProductIds([]); // Filtreler değiştiğinde seçimleri temizle
   }, [filters, products, search]);
 
-  const totalPages = Math.ceil(filtered.length / perPage);
+  // --- GÜNCELLENDİ: "Tümünü Göster" için paginatedProducts ve totalPages ---
   const paginatedProducts = useMemo(() => {
+    if (perPage === 0) { // 0 "Tümünü Göster" demek
+      return filtered;
+    }
     const start = (currentPage - 1) * perPage;
     const end = start + perPage;
     return filtered.slice(start, end);
   }, [filtered, currentPage, perPage]);
+
+  const totalPages = useMemo(() => {
+    if (perPage === 0 || filtered.length === 0) {
+      return 1; // "Tümünü Göster" seçiliyse veya hiç ürün yoksa 1 sayfa
+    }
+    return Math.ceil(filtered.length / perPage);
+  }, [filtered.length, perPage]);
+
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -104,14 +118,67 @@ export default function ProductsPage() {
   const handleDelete = async (id: string) => {
     const confirmed = window.confirm("Bu aracı silmek istediğinizden emin misiniz?");
     if (!confirmed) return;
+    setIsLoading(true);
     const { error } = await supabase.from("Araclar").delete().eq("id", id);
     if (!error) {
-      const updatedProducts = products.filter((item) => item.id !== id);
-      setProducts(updatedProducts);
+      setProducts((prev) => prev.filter((item) => item.id !== id));
+      // filtered state'i products'a bağlı useEffect ile güncellenecek
+      setSelectedProductIds(prev => prev.filter(selectedId => selectedId !== id)); // Eğer silinen ID seçiliyse, seçimden kaldır
     } else {
       alert("Silme işlemi sırasında bir hata oluştu!");
     }
+    setIsLoading(false);
   };
+
+  // --- YENİ: Toplu Silme Fonksiyonu ---
+  const handleBulkDelete = async () => {
+    if (selectedProductIds.length === 0) return;
+    const confirmed = window.confirm(`${selectedProductIds.length} adet aracı silmek istediğinizden emin misiniz?`);
+    if (!confirmed) return;
+
+    setIsLoading(true);
+    const { error } = await supabase.from("Araclar").delete().in("id", selectedProductIds);
+    setIsLoading(false);
+
+    if (!error) {
+      setProducts((prevProducts) => prevProducts.filter((p) => !selectedProductIds.includes(p.id)));
+      // filtered state'i products'a bağlı useEffect ile güncellenecek
+      setSelectedProductIds([]); // Seçimleri temizle
+      alert(`${selectedProductIds.length} araç başarıyla silindi.`);
+    } else {
+      console.error("Error bulk deleting products:", error);
+      alert("Toplu silme işlemi sırasında bir hata oluştu: " + error.message);
+    }
+  };
+
+  // --- YENİ: Checkbox Değişimlerini Yönetme ---
+  const handleProductSelect = (productId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProductIds((prev) => [...prev, productId]);
+    } else {
+      setSelectedProductIds((prev) => prev.filter((id) => id !== productId));
+    }
+  };
+
+  // --- YENİ: Sayfadaki Tümünü Seç/Bırak ---
+  const currentProductIdsOnPage = useMemo(() => paginatedProducts.map(p => p.id), [paginatedProducts]);
+  const allOnPageSelected = useMemo(() =>
+      currentProductIdsOnPage.length > 0 && currentProductIdsOnPage.every(id => selectedProductIds.includes(id)),
+    [currentProductIdsOnPage, selectedProductIds]
+  );
+
+  const handleSelectAllOnPageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { checked } = e.target;
+    if (checked) {
+      // Sayfadaki tümünü seç (önceden seçili olmayanları ekle)
+      const newSelectedIds = Array.from(new Set([...selectedProductIds, ...currentProductIdsOnPage]));
+      setSelectedProductIds(newSelectedIds);
+    } else {
+      // Sayfadaki tümünün seçimini kaldır
+      setSelectedProductIds(prev => prev.filter(id => !currentProductIdsOnPage.includes(id)));
+    }
+  };
+
 
   const buildImageUrl = (filename: string) => {
     if (!filename) return "/placeholder-image.png";
@@ -137,7 +204,7 @@ export default function ProductsPage() {
     </div>
   );
 
-  if (isLoading && !session) {
+  if (isLoading && !session && products.length === 0) { // Sadece ilk yüklemede tam ekran yükleme göster
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <p className="text-gray-700 text-xl">Yükleniyor...</p>
@@ -151,6 +218,17 @@ export default function ProductsPage() {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-200">
           <h1 className="text-3xl font-bold text-gray-800 mb-4 sm:mb-0">Araç Yönetimi</h1>
           <div className="flex items-center gap-3">
+            {/* --- YENİ: Toplu Sil Butonu --- */}
+            {selectedProductIds.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={isLoading}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md shadow-sm hover:bg-red-700 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-60"
+              >
+                <TrashIcon className="w-4 h-4" />
+                Seçili ({selectedProductIds.length}) Sil
+              </button>
+            )}
             {session && (
               <button
                 onClick={handleLogout}
@@ -171,7 +249,6 @@ export default function ProductsPage() {
         </div>
 
         <div className="mb-6 p-4 bg-white rounded-lg shadow">
-          {/* Filtreler için grid yapısını md:grid-cols-4 olarak güncelledik, böylece 8 eleman sığabilir (2 satırda) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
             <FilterSelect value={filters.yakit} onChange={(e) => setFilters({ ...filters, yakit: e.target.value })} defaultOption="Tüm Yakıtlar">
               <option value="Benzin">Benzin</option> <option value="Dizel">Dizel</option> <option value="Elektrik">Elektrik</option> <option value="Hibrit">Hibrit</option> <option value="Benzin + LPG">Benzin + LPG</option>
@@ -191,8 +268,6 @@ export default function ProductsPage() {
             <FilterSelect value={filters.durum} onChange={(e) => setFilters({ ...filters, durum: e.target.value })} defaultOption="Tüm Durumlar">
               <option value="Sıfır">Sıfır</option> <option value="İkinci El">İkinci El</option>
             </FilterSelect>
-            
-            {/* <-- YENİ: Stok Kodu Arama Alanı --> */}
             <div className="relative">
               <input
                 type="text"
@@ -203,8 +278,6 @@ export default function ProductsPage() {
               />
               <SearchIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             </div>
-
-            {/* Araç Adıyla Arama Alanı (Bu zaten vardı) */}
             <div className="relative">
               <input
                 type="text"
@@ -218,14 +291,20 @@ export default function ProductsPage() {
           </div>
         </div>
         
-        <div className="flex justify-between items-center mb-4 px-1">
-          <p className="text-sm text-gray-600">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 px-1 gap-y-3">
+          <p className="text-sm text-gray-600 order-2 sm:order-1">
             <span className="font-semibold text-gray-800">{filtered.length}</span> araç bulundu
+            {selectedProductIds.length > 0 && (
+                <span className="ml-2 text-blue-600">({selectedProductIds.length} seçili)</span>
+            )}
           </p>
-          <div className="relative">
+          <div className="relative order-1 sm:order-2">
             <select
               value={perPage}
-              onChange={(e) => { setPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+              onChange={(e) => { 
+                setPerPage(parseInt(e.target.value)); 
+                setCurrentPage(1); 
+              }}
               className={`p-2 pr-8 border border-gray-300 rounded-md shadow-sm text-sm
                           focus:outline-none focus:ring-2 focus:ring-[#6A3C96] focus:border-[#6A3C96]
                           appearance-none bg-white hover:border-gray-400`}
@@ -234,19 +313,51 @@ export default function ProductsPage() {
               <option value={16}>16 / sayfa</option>
               <option value={20}>20 / sayfa</option>
               <option value={24}>24 / sayfa</option>
+              {/* --- YENİ: "Tümünü Göster" seçeneği (value=0) --- */}
+              <option value={0}>Tümünü Göster</option>
             </select>
             <ChevronDownIcon className="w-5 h-5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
-        {isLoading ? (
+        {/* --- YENİ: Sayfadaki Tümünü Seç Checkbox --- */}
+        {paginatedProducts.length > 0 && (
+            <div className="mb-4 flex items-center px-1">
+                <input
+                    id="select-all-on-page"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-[#6A3C96] focus:ring-[#522d73]"
+                    checked={allOnPageSelected}
+                    onChange={handleSelectAllOnPageChange}
+                    disabled={isLoading}
+                />
+                <label htmlFor="select-all-on-page" className="ml-2 text-sm text-gray-700">
+                    Sayfadaki tümünü seç/bırak
+                </label>
+            </div>
+        )}
+
+
+        {isLoading && products.length === 0 ? ( // Sadece ilk yüklemede ve ürün yokken göster
           <div className="text-center py-10">
             <p className="text-gray-700 text-lg">Araçlar yükleniyor...</p>
           </div>
         ) : paginatedProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {paginatedProducts.map((item) => (
-              <div key={item.id} className="group bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
+              <div key={item.id} className="group bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl relative">
+                {/* --- YENİ: Araç Seçme Checkbox --- */}
+                <div className="absolute top-3 left-3 z-10">
+                    <input
+                        type="checkbox"
+                        className="h-5 w-5 rounded border-gray-400 text-[#6A3C96] focus:ring-[#522d73] focus:ring-offset-1 checked:bg-[#6A3C96]"
+                        checked={selectedProductIds.includes(item.id)}
+                        onChange={(e) => handleProductSelect(item.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()} // Kartın tıklanmasını engelle
+                        aria-label={`Select ${item.isim || 'araç'}`}
+                        disabled={isLoading}
+                    />
+                </div>
                 <div className="aspect-video w-full overflow-hidden bg-slate-100">
                   <img
                     src={buildImageUrl(item.cover_image)}
@@ -264,7 +375,6 @@ export default function ProductsPage() {
                     <p><span className="font-medium text-gray-700">Segment:</span> {item.segment || "-"}</p>
                     <p><span className="font-medium text-gray-700">Kasa:</span> {item.bodyType || "-"}</p>
                     <p><span className="font-medium text-gray-700">Durum:</span> {item.durum || "-"}</p>
-                    {/* <-- YENİ: Stok Kodu Gösterimi --> */}
                     <p><span className="font-medium text-gray-700">Stok Kodu:</span> {item.stok_kodu || "-"}</p>
                   </div>
                   <div className="mt-auto pt-3 border-t border-gray-100 flex justify-end items-center gap-3">
@@ -280,7 +390,8 @@ export default function ProductsPage() {
                     </Link>
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-100 rounded-md hover:bg-red-200 hover:text-red-700 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
+                      disabled={isLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-100 rounded-md hover:bg-red-200 hover:text-red-700 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-60"
                     >
                       <TrashIcon className="w-4 h-4" />
                       Sil
@@ -291,6 +402,7 @@ export default function ProductsPage() {
             ))}
           </div>
         ) : (
+          !isLoading && // Yükleme bittiyse ve ürün yoksa göster
           <div className="text-center py-10 col-span-full">
             <img src="/no-results.svg" alt="Sonuç Bulunamadı" className="mx-auto mb-4 w-40 h-40" />
             <p className="text-xl text-gray-700">Aradığınız kriterlere uygun araç bulunamadı.</p>
@@ -298,11 +410,12 @@ export default function ProductsPage() {
           </div>
         )}
 
+        {/* --- GÜNCELLENDİ: Sayfalama sadece totalPages > 1 ise gösterilir --- */}
         {totalPages > 1 && !isLoading && paginatedProducts.length > 0 && (
           <div className="mt-8 flex justify-center items-center gap-2 flex-wrap">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isLoading}
               className="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               ← Önceki
@@ -310,23 +423,40 @@ export default function ProductsPage() {
             {Array.from({ length: totalPages }, (_, i) => {
               const pageNum = i + 1;
               const showPage = Math.abs(pageNum - currentPage) < 3 || pageNum === 1 || pageNum === totalPages;
-              const isEllipsis = Math.abs(pageNum - currentPage) === 3 && pageNum !== 1 && pageNum !== totalPages;
+              const isEllipsis = Math.abs(pageNum - currentPage) === 3 && pageNum !== 1 && pageNum !== totalPages && totalPages > 5; // Ellipsis için koşul güncellendi
 
               if (isEllipsis) {
-                return <span key={`ellipsis-${i}`} className="px-3 py-2 text-sm text-gray-500">...</span>;
+                // Sadece bir ellipsis göster, mevcut sayfaya göre konumlandır.
+                // Örneğin, ... 5 6 7 ... gibi.
+                // Eğer ilk ellipsis gösteriliyorsa (1 ... X) veya son ellipsis (X ... N)
+                // Bu mantık biraz daha karmaşık olabilir, şimdilik basit tutalım.
+                 if (pageNum < currentPage && pageNum === 2 && currentPage > 4) { // 1 ... X
+                     return <span key={`ellipsis-start-${i}`} className="px-3 py-2 text-sm text-gray-500">...</span>;
+                 }
+                 if (pageNum > currentPage && pageNum === totalPages -1 && currentPage < totalPages - 3) { // X ... N
+                     return <span key={`ellipsis-end-${i}`} className="px-3 py-2 text-sm text-gray-500">...</span>;
+                 }
+                 // Aradaki ellipsis için daha basit bir kontrol
+                 if(Math.abs(pageNum - currentPage) === 3 && totalPages > 5 && (pageNum > 1 && pageNum < totalPages) ) {
+                    return <span key={`ellipsis-mid-${i}`} className="px-3 py-2 text-sm text-gray-500">...</span>;
+                 }
+                 return null; // Diğer ellipsis durumlarını gizle
               }
-              if (!showPage) {
+              if (!showPage && totalPages > 5) { // Çok fazla sayfa varsa ve gösterilmeyecekse null dön
                 return null;
               }
               return (
                 <button
-                  key={i}
+                  key={pageNum} // key olarak pageNum kullanmak daha iyi
                   onClick={() => setCurrentPage(pageNum)}
+                  disabled={isLoading}
                   className={`px-4 py-2 text-sm border rounded-md transition-colors
                     ${currentPage === pageNum
                       ? `text-white border-[#6A3C96]` 
                       : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-400"
-                    }`}
+                    }
+                    ${isLoading ? 'disabled:opacity-50 disabled:cursor-not-allowed' : ''}
+                  `}
                   style={currentPage === pageNum ? { backgroundColor: "#6A3C96" } : {}}
                 >
                   {pageNum}
@@ -335,7 +465,7 @@ export default function ProductsPage() {
             })}
             <button
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || isLoading}
               className="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Sonraki →
