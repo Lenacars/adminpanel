@@ -18,6 +18,8 @@ function normalize(str: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json(); // Array of araçlar
+    console.log("📥 Gelen JSON body:", body);
+
     let successCount = 0;
     let errorCount = 0;
     let enriched = [];
@@ -27,6 +29,9 @@ export async function POST(request: NextRequest) {
       .from("images")
       .list("", { limit: 1000 });
 
+    if (storageError) {
+      console.error("🛑 Storage hatası:", storageError);
+    }
     const files = (storageList || []).map((f) => f.name);
 
     for (const [idx, item] of body.entries()) {
@@ -39,9 +44,12 @@ export async function POST(request: NextRequest) {
           varyasyonlar = []
         } = item;
 
+        console.log(`\n\n🚗 [${idx}] Model işleniyor:`, model, "| Stok:", stok_kodu);
+
         // Model adından "anahtar" üret
         const baseModel = model?.toString().split(" ")[0]?.toLowerCase() || "";
         const modelKey = normalize(baseModel);
+        console.log(`🔑 ModelKey: ${modelKey}`);
 
         // Cover görseli arona-head.webp (örn: arona-head.webp)
         const coverFile = files.find(
@@ -64,8 +72,11 @@ export async function POST(request: NextRequest) {
             `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${g}`
         );
 
+        console.log("📸 Cover:", coverImageUrl);
+        console.log("🖼️ Gallery:", galleryImagesUrl);
+
         // Aynı stok kodu var mı diye kontrol
-        const { data: checkExist } = await supabase
+        const { data: checkExist, error: checkErr } = await supabase
           .from("Araclar")
           .select("id")
           .eq("stok_kodu", stok_kodu)
@@ -91,20 +102,29 @@ export async function POST(request: NextRequest) {
 
           if (insertErr || !inserted?.id) {
             errorCount++;
+            console.error(`❌ Araç eklenemedi: ${model} (${stok_kodu}) | Hata:`, insertErr);
             continue;
           }
           aracId = inserted.id;
+          console.log(`✅ Araç eklendi, ID: ${aracId}`);
+        } else {
+          console.log("ℹ️ Zaten kayıtlı araç, yeni varyasyon ekleniyor:", aracId);
         }
 
         // Varyasyonları kaydet
         for (const varyasyon of varyasyonlar) {
-          await supabase.from("variations").insert({
+          const { error: varErr } = await supabase.from("variations").insert({
             arac_id: aracId,
             fiyat: Number(varyasyon.fiyat) || 0,
             kilometre: varyasyon.km,
             sure: varyasyon.sure,
             status: "yayinda",
           });
+          if (varErr) {
+            console.error("🟠 Varyasyon insert hatası:", varErr, varyasyon);
+          } else {
+            console.log("🟢 Varyasyon kaydedildi:", varyasyon);
+          }
         }
 
         successCount++;
@@ -115,8 +135,11 @@ export async function POST(request: NextRequest) {
         });
       } catch (err) {
         errorCount++;
+        console.error("🔴 İşlenemeyen kayıt:", err);
       }
     }
+
+    console.log(`🟩 İşlem tamam: ${successCount} model, ${errorCount} hata`);
 
     return NextResponse.json(
       {
@@ -126,6 +149,7 @@ export async function POST(request: NextRequest) {
       { headers: corsHeaders }
     );
   } catch (error: any) {
+    console.error("❌ Genel API hatası:", error);
     return NextResponse.json(
       { error: error.message || "Bilinmeyen sunucu hatası" },
       { status: 500, headers: corsHeaders }
