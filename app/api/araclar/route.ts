@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     console.log("➡️ API'ye gelen veri:", JSON.stringify(body, null, 2));
 
     // Görsel dosya listesini çek (storage'daki tüm dosyalar)
-    const { data: storageList, error: storageError } = await supabase.storage
+    const { data: storageList, error: storageError } = await supabaseAdmin.storage
       .from("images")
       .list("", { limit: 1000 });
     if (storageError) console.error("❌ Storage hatası:", storageError);
@@ -49,11 +49,9 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Modelin ilk kelimesi ile eşleşme (ör. "ARONA" → "arona-head.webp")
         const modelWord = String(model).split(" ")[0];
         const modelKey = normalize(modelWord);
 
-        // Kapak görselini bul ("arona-head.webp" veya "aronahead.webp" destekleniyor)
         const coverFile = files.find(
           (f) =>
             (f.startsWith(modelKey) && f.includes("head")) ||
@@ -75,8 +73,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`[${idx}] Model: ${model}, Kapak: ${coverFile}, Galeri:`, gallery);
 
-        // Aynı stok kodu var mı?
-        const { data: checkExist, error: existErr } = await supabase
+        const { data: checkExist, error: existErr } = await supabaseAdmin
           .from("Araclar")
           .select("id")
           .eq("stok_kodu", stok_kodu)
@@ -85,8 +82,7 @@ export async function POST(request: NextRequest) {
         let aracId = checkExist?.id;
 
         if (!aracId) {
-          // Aracı ekle
-          const { data: inserted, error: insertErr } = await supabase
+          const { data: inserted, error: insertErr } = await supabaseAdmin
             .from("Araclar")
             .insert({
               isim: model,
@@ -111,9 +107,8 @@ export async function POST(request: NextRequest) {
           console.log(`[${idx}] Araç zaten var. ID:`, aracId);
         }
 
-        // Varyasyonları ekle
         for (const varyasyon of varyasyonlar) {
-          const { error: varErr } = await supabase.from("variations").insert({
+          const { error: varErr } = await supabaseAdmin.from("variations").insert({
             arac_id: aracId,
             fiyat: Number(varyasyon.fiyat) || 0,
             kilometre: varyasyon.km,
@@ -156,4 +151,26 @@ export async function POST(request: NextRequest) {
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
+}
+
+export async function GET() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("Araclar")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("❌ Araclar tablosu çekilirken hata:", error);
+      return NextResponse.json({ error: "Veri alınamadı" }, { status: 500 });
+    }
+
+    return NextResponse.json(data, { status: 200, headers: corsHeaders });
+  } catch (error: any) {
+    console.error("🔥 GET isteğinde hata:", error);
+    return NextResponse.json(
+      { error: error.message || "Bilinmeyen sunucu hatası" },
+      { status: 500 }
+    );
+  }
 }
