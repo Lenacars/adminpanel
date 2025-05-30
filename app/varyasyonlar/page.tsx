@@ -1,58 +1,62 @@
-"use client";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent } from "@/components/ui/card";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase"; // sadece client supabase'i kullan
+interface Varyasyon {
+  id: string;
+  kilometre: string;
+  sure: string;
+  fiyat: number;
+  araclar: {
+    stok_kodu: string;
+    isim: string;
+  } | null;
+}
 
-export default function VaryasyonTest() {
-  const [veri, setVeri] = useState<any[]>([]);
-  const [yukleniyor, setYukleniyor] = useState(true);
+export default async function VaryasyonListPage() {
+  const { data, error } = await supabase
+    .from("variations")
+    .select(`
+      id,
+      kilometre,
+      sure,
+      fiyat,
+      araclar:arac_id (
+        stok_kodu,
+        isim
+      )
+    `)
+    .order("created_at", { ascending: false });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setYukleniyor(true);
-
-      const { data, error } = await supabase
-        .from("Araclar")
-        .select("id, stok_kodu, isim, variations!inner(id, kilometre, sure, fiyat)")
-        .order("stok_kodu");
-
-      console.log("📦 Gelen veri:", data);
-      console.log("❌ Hata varsa:", error);
-
-      if (data) setVeri(data);
-      setYukleniyor(false);
-    };
-
-    fetchData();
-  }, []);
+  if (error) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Varyasyon Fiyat Listesi</h1>
+        <p className="text-red-500">Veri alınırken hata oluştu: {error.message}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Test Varyasyon Görüntüleme</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Varyasyon Fiyat Listesi</h1>
 
-      {yukleniyor ? (
-        <p>Yükleniyor...</p>
-      ) : veri.length === 0 ? (
-        <p>Veri bulunamadı</p>
-      ) : (
-        <div className="space-y-6">
-          {veri.map((arac) => (
-            <div key={arac.id} className="border border-gray-300 rounded-lg p-4 shadow">
-              <p className="font-semibold text-purple-700">
-                🚗 {arac.stok_kodu} — {arac.isim}
-              </p>
-
-              <ul className="mt-2 list-disc list-inside text-sm text-gray-700">
-                {arac.variations.map((v: any) => (
-                  <li key={v.id}>
-                    {v.kilometre} | {v.sure} → <strong>{v.fiyat} ₺</strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+      {(!data || data.length === 0) && (
+        <p className="text-gray-500">Veri bulunamadı</p>
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {data?.map((item: Varyasyon) => (
+          <Card key={item.id}>
+            <CardContent className="p-4 space-y-1">
+              <p><strong>Stok Kodu:</strong> {item.araclar?.stok_kodu || "-"}</p>
+              <p><strong>Araç:</strong> {item.araclar?.isim || "-"}</p>
+              <p><strong>Kilometre:</strong> {item.kilometre}</p>
+              <p><strong>Süre:</strong> {item.sure}</p>
+              <p><strong>Fiyat:</strong> ₺{item.fiyat.toLocaleString("tr-TR")}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
