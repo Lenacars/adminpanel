@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase"; // supabase-admin değil, tarayıcı client
+import { supabase } from "@/lib/supabase"; // client tarafı
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 
@@ -27,9 +27,15 @@ export default function VaryasyonFiyatListesi() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+
       const { data, error } = await supabase
         .from("Araclar")
-        .select("id, stok_kodu, isim, variations(id, kilometre, sure, fiyat)")
+        .select(`
+          id,
+          stok_kodu,
+          isim,
+          variations!inner(id, kilometre, sure, fiyat)
+        `)
         .order("stok_kodu");
 
       if (error) {
@@ -67,7 +73,6 @@ export default function VaryasyonFiyatListesi() {
         return copy;
       });
 
-      // Güncel fiyatı local state'e uygula
       setAraclar((prev) =>
         prev.map((a) => ({
           ...a,
