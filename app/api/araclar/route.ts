@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log("➡️ API'ye gelen veri:", JSON.stringify(body, null, 2));
 
-    // Görsel dosya listesini çek (storage'daki tüm dosyalar)
     const { data: storageList, error: storageError } = await supabaseAdmin.storage
       .from("images")
       .list("", { limit: 1000 });
@@ -157,7 +156,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("Araclar")
-      .select("*")
+      .select("*, variations(*)") // ✅ variations dahil
       .order("created_at", { ascending: false });
 
     if (error) {
