@@ -1,9 +1,8 @@
-// app/hubspot/contacts/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 
-export default function HubspotContactsPage() {
+export default function RaporlamaPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +30,7 @@ export default function HubspotContactsPage() {
             <ul className="list-disc ml-6">
               {contact.deals.length > 0 ? (
                 contact.deals.map((deal: any, i: number) => (
-                  <li key={i}>ID: {deal.id}</li>
+                  <li key={i}>Deal ID: {deal.id}</li>
                 ))
               ) : (
                 <li>İlgili anlaşma yok</li>
