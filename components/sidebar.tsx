@@ -92,7 +92,7 @@ const unifiedMenuItems: MenuItem[] = [
 ];
 
 const extraMenuItems: MenuItem[] = [
-  { label: "Analitik", href: "/analitik", icon: "📈", roles: [] },
+  { label: "Raporlama", href: "/raporlama", icon: "📈", roles: [] },
   { label: "Mesajlar", href: "/mesajlar", icon: "💬", roles: [] },
   { label: "Ayarlar", href: "/ayarlar", icon: "⚙️", roles: [] },
   { label: "Ortam Kütüphanesi", href: "/media", icon: "🖼️", roles: [] },
