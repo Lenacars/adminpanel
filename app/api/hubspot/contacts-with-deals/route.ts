@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
 
-// 100'erlik sayfalama ile tüm kişileri çeker
 async function getContacts(): Promise<any[]> {
   const allContacts: any[] = [];
   let after: string | null = null;
@@ -14,7 +13,10 @@ async function getContacts(): Promise<any[]> {
     const url = new URL(`${HUBSPOT_API}/crm/v3/objects/contacts`);
     url.searchParams.set("limit", "100");
     url.searchParams.set("archived", "false");
-    url.searchParams.set("properties", "firstname,lastname,email,phone,company,jobtitle,createdate");
+    url.searchParams.set(
+      "properties",
+      "firstname,lastname,email,phone,company,jobtitle,createdate"
+    );
 
     if (after) {
       url.searchParams.set("after", after);
@@ -40,7 +42,6 @@ async function getContacts(): Promise<any[]> {
   return allContacts;
 }
 
-// Her bir kişi için bağlı anlaşmaları çeker
 async function getDealsForContact(contactId: string) {
   const res = await fetch(
     `${HUBSPOT_API}/crm/v3/objects/contacts/${contactId}/associations/deals`,
@@ -56,7 +57,6 @@ async function getDealsForContact(contactId: string) {
   return data.results || [];
 }
 
-// GET isteğini işleyen route
 export async function GET() {
   try {
     const contacts = await getContacts();
@@ -64,3 +64,16 @@ export async function GET() {
     const enrichedContacts = await Promise.all(
       contacts.map(async (contact: any) => {
         const deals = await getDealsForContact(contact.id);
+        return {
+          ...contact,
+          deals,
+        };
+      })
+    );
+
+    return NextResponse.json(enrichedContacts);
+  } catch (err) {
+    console.error("❌ HubSpot API Hatası:", err);
+    return NextResponse.json({ error: "Veri alınamadı" }, { status: 500 });
+  }
+}
