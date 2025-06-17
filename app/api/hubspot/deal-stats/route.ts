@@ -17,7 +17,9 @@ export async function GET() {
       body: JSON.stringify({
         filterGroups: [
           {
-            filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }],
+            filters: [
+              { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
+            ],
           },
         ],
         properties: ["dealstage", "amount"],
@@ -26,8 +28,9 @@ export async function GET() {
     });
 
     if (!res.ok) {
-      console.error("HubSpot API Error:", await res.text());
-      return NextResponse.json({ error: "HubSpot API Error" }, { status: res.status });
+      const errorText = await res.text();
+      console.error("HubSpot API Error:", errorText);
+      return NextResponse.json({ error: errorText }, { status: res.status });
     }
 
     const data = await res.json();
@@ -47,8 +50,8 @@ export async function GET() {
     }
 
     return NextResponse.json({ success: true, data: stageData });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Server Error:", err);
-    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
