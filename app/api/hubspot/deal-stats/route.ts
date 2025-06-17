@@ -18,10 +18,6 @@ export async function GET() {
       },
     });
 
-    if (!res.ok) {
-      throw new Error(`HubSpot API hatası: ${res.status}`);
-    }
-
     const data = await res.json();
     const deals = data.results || [];
 
@@ -41,7 +37,6 @@ export async function GET() {
 
     return NextResponse.json({ pipeline_summary: stats });
   } catch (error) {
-    console.error("📉 Deal stats API hatası:", error);
-    return NextResponse.json({ error: "Özet alınamadı" }, { status: 500 });
+    return NextResponse.json({ error: "Veri alınamadı" }, { status: 500 });
   }
 }
