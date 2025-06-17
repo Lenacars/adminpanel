@@ -13,7 +13,6 @@ async function getContactsPaginated(after: string | null = null) {
     "properties",
     "firstname,lastname,email,phone,company,jobtitle,createdate"
   );
-
   if (after) {
     url.searchParams.set("after", after);
   }
@@ -24,6 +23,10 @@ async function getContactsPaginated(after: string | null = null) {
       "Content-Type": "application/json",
     },
   });
+
+  if (!res.ok) {
+    throw new Error("Kişi verisi alınamadı: " + (await res.text()));
+  }
 
   return res.json();
 }
@@ -40,10 +43,15 @@ async function getDealsForContact(contactId: string) {
     }
   );
 
+  if (!res.ok) {
+    console.error("❌ Deal ID'leri alınamadı:", await res.text());
+    return [];
+  }
+
   const associations = await res.json();
   const dealIds = associations.results?.map((r: any) => r.id) || [];
 
-  if (dealIds.length === 0) return [];
+  if (!Array.isArray(dealIds) || dealIds.length === 0) return [];
 
   const resDeals = await fetch(
     `${HUBSPOT_API}/crm/v3/objects/deals/batch/read`,
@@ -60,6 +68,11 @@ async function getDealsForContact(contactId: string) {
     }
   );
 
+  if (!resDeals.ok) {
+    console.error("❌ Deal detayları alınamadı:", await resDeals.text());
+    return [];
+  }
+
   const dealData = await resDeals.json();
   return dealData.results || [];
 }
@@ -72,14 +85,13 @@ export async function GET(request: Request) {
 
     let after: string | null = null;
     let currentPage = 1;
-    let pagingToken: string | null = null;
 
     // Sayfa ilerletme (örneğin page=3 için 2 kez ilerle)
     while (currentPage < page) {
       const data = await getContactsPaginated(after);
-      pagingToken = data.paging?.next?.after;
-      if (!pagingToken) break;
-      after = pagingToken;
+      const nextAfter = data.paging?.next?.after;
+      if (!nextAfter) break;
+      after = nextAfter;
       currentPage++;
     }
 
@@ -96,6 +108,7 @@ export async function GET(request: Request) {
           return {
             ...contact,
             deals,
+            dealCount: deals.length,
           };
         })
       )
@@ -109,6 +122,9 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("❌ HubSpot API Hatası:", err);
-    return NextResponse.json({ error: "Veri alınamadı" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Veri alınamadı", details: String(err) },
+      { status: 500 }
+    );
   }
 }
