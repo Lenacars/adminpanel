@@ -2,6 +2,17 @@
 
 import { useEffect, useState } from "react";
 
+// 💬 İngilizce stage kodlarını Türkçeye çeviren eşleştirme
+const stageDisplayNames: Record<string, string> = {
+  appointmentscheduled: "Randevu Planlandı",
+  qualifiedtobuy: "Satın Almaya Uygun",
+  presentationscheduled: "Sunum Planlandı",
+  decisionmakerboughtin: "Karar Verici Dahil Oldu",
+  contractsent: "Sözleşme İletildi",
+  closedwon: "Kazanıldı",
+  closedlost: "Kaybedildi",
+};
+
 export default function RaporlamaPage() {
   const [dealStats, setDealStats] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -19,7 +30,7 @@ export default function RaporlamaPage() {
       });
   }, []);
 
-  if (loading) return <div className="p-4">Yükleniyor...</div>;
+  if (loading) return <div className="p-6">Yükleniyor...</div>;
 
   return (
     <div className="p-6 space-y-8">
@@ -28,9 +39,13 @@ export default function RaporlamaPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Object.entries(dealStats).map(([stage, stats]: any) => (
           <div key={stage} className="border p-4 rounded-lg shadow bg-white">
-            <h2 className="text-lg font-semibold mb-2">{stage}</h2>
+            <h2 className="text-lg font-bold mb-2">
+              {stageDisplayNames[stage] || stage}
+            </h2>
             <p className="text-gray-700">Toplam Anlaşma: {stats.count}</p>
-            <p className="text-gray-700">Toplam Tutar: ₺{Number(stats.totalAmount).toLocaleString("tr-TR")}</p>
+            <p className="text-gray-700">
+              Toplam Tutar: ₺{Number(stats.totalAmount).toLocaleString("tr-TR")}
+            </p>
           </div>
         ))}
       </div>
