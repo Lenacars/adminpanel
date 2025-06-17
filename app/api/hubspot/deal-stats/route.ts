@@ -2,46 +2,57 @@ import { NextResponse } from "next/server";
 
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
+const PIPELINE_ID = "12060148"; // Araç Kiralama Süreci pipeline ID'si
 const LIMIT = 100;
-const PIPELINE_ID = "12060148"; // Araç Kiralama Süreci
 
 export async function GET() {
   try {
-    const stageCounts: Record<string, number> = {};
     let after: string | null = null;
-    let totalFetched = 0;
+    const stageData: Record<string, { count: number; totalAmount: number }> = {};
 
     while (true) {
       const url = new URL(`${HUBSPOT_API}/crm/v3/objects/deals`);
       url.searchParams.set("limit", LIMIT.toString());
       url.searchParams.set("archived", "false");
-      url.searchParams.set("properties", "dealstage,pipeline");
+      url.searchParams.set("properties", "dealstage,amount,pipeline");
       if (after) url.searchParams.set("after", after);
 
       const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${TOKEN}` },
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          "Content-Type": "application/json",
+        },
       });
 
-      const data = await res.json();
+      if (!res.ok) {
+        console.error("API error:", await res.text());
+        return NextResponse.json({ error: "API hatası" }, { status: res.status });
+      }
 
+      const data = await res.json();
       const deals = (data.results || []).filter(
-        (d: any) => d.properties?.pipeline === PIPELINE_ID
+        (deal: any) => deal.properties?.pipeline === PIPELINE_ID
       );
 
       for (const deal of deals) {
         const stage = deal.properties?.dealstage || "bilinmeyen";
-        stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+        const amount = parseFloat(deal.properties?.amount || "0");
+
+        if (!stageData[stage]) {
+          stageData[stage] = { count: 0, totalAmount: 0 };
+        }
+
+        stageData[stage].count += 1;
+        stageData[stage].totalAmount += amount;
       }
 
-      totalFetched += deals.length;
       after = data.paging?.next?.after;
-
-      if (!after || totalFetched > 500) break; // ⚠️ sınır koy
+      if (!after) break;
     }
 
-    return NextResponse.json({ stageCounts });
+    return NextResponse.json({ success: true, data: stageData });
   } catch (err) {
-    console.error("Deal stage çekilemedi:", err);
-    return NextResponse.json({ error: "Veri alınamadı" }, { status: 500 });
+    console.error("Server hatası:", err);
+    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }
