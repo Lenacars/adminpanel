@@ -92,7 +92,16 @@ const unifiedMenuItems: MenuItem[] = [
 ];
 
 const extraMenuItems: MenuItem[] = [
-  { label: "Raporlama", href: "/raporlama", icon: "📈", roles: [] },
+  {
+    label: "Raporlama",
+    icon: "📈",
+    roles: [],
+    children: [ // Raporlama'nın altına yeni sayfalar eklendi
+      { label: "Genel Raporlama", href: "/raporlama" },
+      { label: "Çalışan Performansı", href: "/raporlama/calisan-performansi" },
+      { label: "Kaynak Analizi", href: "/raporlama/kaynak-analizi" },
+    ],
+  },
   { label: "Mesajlar", href: "/mesajlar", icon: "💬", roles: [] },
   { label: "Ayarlar", href: "/ayarlar", icon: "⚙️", roles: [] },
   { label: "Ortam Kütüphanesi", href: "/media", icon: "🖼️", roles: [] },
@@ -155,8 +164,11 @@ export default function Sidebar() {
     const newOpenDropdowns: Record<string, boolean> = {};
     [...unifiedMenuItems, ...extraMenuItems].forEach(item => {
       if (item.children) {
-        const isChildActive = item.children.some(child => child.href === pathname);
-        if (isChildActive) {
+        // Çocuk öğelerden herhangi biri aktifse veya parent item'ın kendi href'i aktifse
+        const isChildActive = item.children.some(child => pathname.startsWith(child.href)); // 'startsWith' ile alt sayfaları da yakala
+        const isParentHrefActive = item.href && pathname === item.href;
+
+        if (isChildActive || isParentHrefActive) {
           newOpenDropdowns[item.label] = true;
         }
       }
@@ -188,8 +200,12 @@ export default function Sidebar() {
       if (rol === null && item.roles.length > 0) return null;
       if (item.roles.length > 0 && !item.roles.includes(rol!)) return null;
 
-      const isParentActive = item.children?.some(child => pathname === child.href);
+      // Eğer item'ın çocukları varsa, herhangi bir çocuğun veya parent'ın href'inin aktif olup olmadığını kontrol et
+      const isParentActive = item.children
+        ? item.children.some(child => pathname.startsWith(child.href)) || (item.href && pathname.startsWith(item.href))
+        : false;
       const currentItemIsActive = item.href && pathname === item.href;
+
 
       if (item.children) {
         const isOpen = !!openDropdowns[item.label];
@@ -198,12 +214,12 @@ export default function Sidebar() {
             <button
               onClick={() => toggleDropdown(item.label)}
               className={`group relative flex items-center w-full text-left pl-3 pr-2 py-2.5 rounded-lg transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-50
-                ${isParentActive && !isOpen ? 'bg-[#552E7A] text-slate-50' : 'hover:bg-[#5b3482] text-slate-200 hover:text-slate-50'}
+                ${isParentActive || isOpen ? 'bg-[#552E7A] text-slate-50' : 'hover:bg-[#5b3482] text-slate-200 hover:text-slate-50'}
               `}
             >
-              {isParentActive && (
-                 <span className="absolute left-0 top-1/2 transform -translate-y-1/2 h-5 w-[3px] bg-purple-300 rounded-r-full"></span>
-              )}
+              {(isParentActive || isOpen) && (
+                   <span className="absolute left-0 top-1/2 transform -translate-y-1/2 h-5 w-[3px] bg-purple-300 rounded-r-full"></span>
+               )}
               {item.icon && (
                 <span className="w-6 h-6 mr-3 flex items-center justify-center text-purple-200 group-hover:text-slate-50 transition-colors">
                   {typeof item.icon === 'string' ? <span className="text-lg">{item.icon}</span> : item.icon}
@@ -217,7 +233,7 @@ export default function Sidebar() {
             >
               <div className="mt-1 pl-9 space-y-1 py-1">
                 {item.children.map((child) => {
-                  const isChildActive = pathname === child.href;
+                  const isChildActive = pathname.startsWith(child.href); // 'startsWith' ile alt sayfaları da yakala
                   return (
                     <Link
                       key={child.href}
@@ -263,11 +279,7 @@ export default function Sidebar() {
   };
 
   return (
-    // === DEĞİŞİKLİK BURADA ===
     <aside className="fixed top-0 left-0 z-40 h-screen bg-[#6A3C96] w-64 text-slate-100 flex flex-col justify-between shadow-xl">
-    {/* Önceki className: "h-screen bg-[#6A3C96] w-64 text-slate-100 flex flex-col justify-between shadow-xl" */}
-    {/* Eklenenler: fixed top-0 left-0 z-40 */}
-    
       {/* Scrollable Alan Başlangıcı */}
       <div className="flex flex-col flex-grow overflow-y-auto sidebar-scrollable pr-0.5">
         <div className="p-4">
