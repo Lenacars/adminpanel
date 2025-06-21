@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
@@ -14,23 +14,38 @@ const stageMap = {
   "closedlost": "Kaybetti",
 };
 
-export async function GET() {
+// Yardımcı: Ayları ms olarak hesapla
+const getStartDate = (period: string) => {
+  const now = new Date();
+  let past: Date;
+  if (period === "1ay") past = new Date(now.setMonth(now.getMonth() - 1));
+  else if (period === "6ay") past = new Date(now.setMonth(now.getMonth() - 6));
+  else if (period === "12ay") past = new Date(now.setMonth(now.getMonth() - 12));
+  else past = new Date(now.setMonth(now.getMonth() - 1)); // default: son 1 ay
+  return past.getTime();
+};
+
+export async function GET(req: NextRequest) {
   try {
+    // URL’den “period” parametresini oku (ör: ?period=6ay)
+    const period = req.nextUrl.searchParams.get("period") || "1ay";
+    const startDate = getStartDate(period);
+
     const stats: any[] = [];
 
     for (const [stageId, stageName] of Object.entries(stageMap)) {
-      // Sadece bu aşamadaki fırsatları çekiyoruz, limit yüksek tut ama sadece properties ile
       const body: any = {
         filterGroups: [
           {
             filters: [
               { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
               { propertyName: "dealstage", operator: "EQ", value: stageId },
+              { propertyName: "createdate", operator: "GTE", value: startDate },
             ],
           },
         ],
         properties: ["amount"],
-        limit: 100, // 100 üzeri varsa, istersen sayfalama ile toplayabilirsin (bakınız not)
+        limit: 100, // Yine sayfalama koyulabilir!
       };
 
       let after = undefined;
@@ -59,7 +74,6 @@ export async function GET() {
         }
         after = data.paging?.next?.after;
         hasMore = !!after;
-        // Çok büyük stage'ler için burada istersen toplam sayıyı limitleyebilirsin
       }
 
       stats.push({
