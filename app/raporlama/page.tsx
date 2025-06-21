@@ -26,7 +26,6 @@ const CORPORATE_COLOR = "#6A3C96";
 const CORPORATE_COLOR_LIGHT = "#9a6cb6"; // Kurumsal rengin daha açık bir tonu
 const CORPORATE_COLOR_DARK = "#4d296b"; // Kurumsal rengin daha koyu bir tonu
 
-
 export default function RaporlamaPage() {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,8 +108,8 @@ export default function RaporlamaPage() {
               }`}
             style={{
                 backgroundColor: selectedFilter === f.key ? CORPORATE_COLOR : undefined,
-                color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR, // Seçili değilse kurumsal renk metin rengi
-                borderColor: selectedFilter === f.key ? undefined : CORPORATE_COLOR_LIGHT, // Seçili değilse hafif kurumsal renk kenarlık
+                color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR,
+                borderColor: selectedFilter === f.key ? undefined : CORPORATE_COLOR_LIGHT,
             }}
             onClick={() => {
               console.log("Filtreye tıklandı:", f.key);
@@ -158,51 +157,52 @@ export default function RaporlamaPage() {
           <ResponsiveContainer width="100%" height={500}>
             <BarChart
               data={stats}
-              barCategoryGap={60} // Barlar arası boşluk
-              barGap={8}
+              barCategoryGap={30} // Barlar arası boşluğu biraz azalt
+              barGap={4} // Barların kendi içindeki boşluğu azalt
               margin={{
                 top: 20,
-                right: 40,
-                left: 30,
-                bottom: 40,
+                right: 50, // Sağdan boşluğu artır
+                left: 40, // Soldan boşluğu artır
+                bottom: 80, // Alt boşluğu daha da artır (X ekseni için)
               }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
               <XAxis
                 dataKey="name"
-                angle={-18}
+                angle={-35} // Eğimi biraz daha artır
                 textAnchor="end"
-                height={80}
+                height={100} // X ekseni alanının yüksekliğini artır
+                interval={0} // Tüm etiketleri göster (atlama yapma)
                 tickFormatter={(value) =>
-                  value.length > 18 ? value.substring(0, 18) + "..." : value
+                  value.length > 15 ? value.substring(0, 15) + "..." : value // Kısaltma sınırını düşür
                 }
-                tick={{ fill: "#555", fontSize: 16 }}
+                tick={{ fill: "#555", fontSize: 13 }} // X ekseni etiketlerinin font boyutunu küçült
               />
               <YAxis
                 yAxisId="left"
                 orientation="left"
-                stroke={CORPORATE_COLOR} // Sol Y ekseni kurumsal renk
-                tick={{ fill: "#555", fontSize: 15 }}
+                stroke={CORPORATE_COLOR}
+                tick={{ fill: "#555", fontSize: 13 }} // Y ekseni etiketlerinin font boyutunu küçült
                 label={{
                   value: "Anlaşma Adedi",
                   angle: -90,
                   position: "insideLeft",
-                  fill: CORPORATE_COLOR, // Sol eksen etiketi kurumsal renk
-                  fontSize: 16,
+                  fill: CORPORATE_COLOR,
+                  fontSize: 14, // Y ekseni label font boyutunu küçült
                 }}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                stroke={CORPORATE_COLOR_LIGHT} // Sağ Y ekseni daha açık kurumsal renk
+                stroke={CORPORATE_COLOR_LIGHT}
                 tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
-                tick={{ fill: "#555", fontSize: 15 }}
+                tick={{ fill: "#555", fontSize: 13 }} // Y ekseni etiketlerinin font boyutunu küçült
                 label={{
                   value: "Toplam Tutar (₺)",
                   angle: 90,
                   position: "insideRight",
-                  fill: CORPORATE_COLOR_LIGHT, // Sağ eksen etiketi daha açık kurumsal renk
-                  fontSize: 16,
+                  fill: CORPORATE_COLOR_LIGHT,
+                  fontSize: 14, // Y ekseni label font boyutunu küçült
                 }}
               />
               <Tooltip
@@ -216,21 +216,21 @@ export default function RaporlamaPage() {
                 labelFormatter={(label) => `Aşama: ${label}`}
                 contentStyle={{
                   borderRadius: "8px",
-                  border: `1px solid ${CORPORATE_COLOR_LIGHT}`, // Tooltip kenarlığı hafif kurumsal renk
+                  border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
                   boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
-                itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }} // Tooltip metin rengi koyu kurumsal renk
+                itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
               />
               <Legend
-                wrapperStyle={{ paddingTop: "20px", fontSize: 18 }}
+                wrapperStyle={{ paddingTop: "20px", fontSize: 16 }} // Legend font boyutunu küçült
                 iconType="circle"
                 verticalAlign="top"
-                align="right"
+                align="center" // Legend'ı ortaya hizala
               />
               <Bar
                 yAxisId="left"
                 dataKey="count"
-                fill={CORPORATE_COLOR} // Bar rengi kurumsal renk
+                fill={CORPORATE_COLOR}
                 name="Anlaşma Adedi"
                 barSize={28}
                 radius={[4, 4, 0, 0]}
@@ -238,7 +238,7 @@ export default function RaporlamaPage() {
               <Bar
                 yAxisId="right"
                 dataKey="totalAmount"
-                fill={CORPORATE_COLOR_LIGHT} // Diğer bar rengi daha açık kurumsal renk
+                fill={CORPORATE_COLOR_LIGHT}
                 name="Toplam Tutar"
                 barSize={28}
                 radius={[4, 4, 0, 0]}
