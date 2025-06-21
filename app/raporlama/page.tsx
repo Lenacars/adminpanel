@@ -10,6 +10,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from "recharts";
 
+// Filtre seçenekleri
 const filters = [
   { key: "1ay", label: "Son 1 Ay" },
   { key: "6ay", label: "Son 6 Ay" },
@@ -27,145 +28,169 @@ const chartTypes = [
   { key: "pie", label: "Pasta Grafik" }
 ];
 
-// Renkler
-const CORPORATE_COLOR = "#522e7b";
-const CORPORATE_COLOR_LIGHT = "#9a6cb6";
-const CORPORATE_COLOR_DARK = "#3c2057";
+// Kurumsal Renkler (Önceki belirttiklerin)
+const CORPORATE_COLOR = "#6A3C96"; // Ana kurumsal renk
+const CORPORATE_COLOR_LIGHT = "#9a6cb6"; // Daha açık ton
+const CORPORATE_COLOR_DARK = "#4d296b"; // Daha koyu ton
+
+// Pasta Grafik Renkleri (Recharts Pie Chart için çeşitli tonlar)
 const PIE_COLORS = [
-  "#522e7b", "#9a6cb6", "#d1b3ff", "#b8b7ff", "#4c51bf", "#7e22ce", "#7c3aed"
+  CORPORATE_COLOR,
+  CORPORATE_COLOR_LIGHT,
+  "#b28cce", // Mor tonu
+  "#c8a2de", // Mor tonu
+  "#ded1e8", // Mor tonu
+  "#7a4d9c", // Mor tonu
+  "#3f225e"  // Mor tonu
 ];
+
 
 export default function RaporlamaPage() {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState("1ay");
-  const [selectedChart, setSelectedChart] = useState("bar");
+  const [selectedChart, setSelectedChart] = useState("bar"); // Başlangıçta Çubuk Grafik seçili
 
   useEffect(() => {
+    console.log("Filtre değişti, yeni sorgu:", selectedFilter);
     setLoading(true);
+
     fetch(`/api/hubspot/deal-stats?period=${selectedFilter}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Sunucudan yanıt alınamadı.");
+        if (!res.ok) {
+          console.error("API yanıtı OK değil:", res.status, res.statusText);
+          throw new Error("Sunucudan yanıt alınamadı.");
+        }
         return res.json();
       })
       .then((data) => {
-        setStats(data.data || []);
+        console.log("API'dan gelen data:", data);
+        // data.data'nın bir dizi olduğundan ve boş olmadığından emin ol
+        if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+            setStats(data.data);
+            setError(null);
+        } else {
+            // Eğer veri yoksa veya format yanlışsa boş dizi set et
+            setStats([]);
+            setError("Gösterilecek veri bulunamadı. Filtreyi değiştirerek deneyin.");
+        }
         setLoading(false);
-        setError(null);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Veri çekme hatası:", err);
         setError("Veriler yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.");
         setLoading(false);
       });
   }, [selectedFilter]);
 
+  // Debug log: render edilen stats
+  console.log("RENDER ANINDA stats:", stats);
+
   if (loading) {
+    console.log("Yükleniyor durumu aktif.");
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-xl font-medium text-gray-700 animate-pulse">Veriler Yükleniyor...</div>
       </div>
     );
   }
+
   if (error) {
+    console.log("Hata durumu:", error);
     return (
       <div className="flex justify-center items-center h-screen bg-red-50 text-red-700 border border-red-300 rounded-lg p-6 m-4 shadow-md">
         <div className="text-xl font-medium">{error}</div>
       </div>
     );
   }
-  if (!stats.length) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-yellow-50 text-yellow-700 border border-yellow-300 rounded-lg p-6 m-4 shadow-md">
-        <div className="text-xl font-medium">Gösterilecek kayıt bulunamadı. Lütfen filtreyi değiştirerek tekrar deneyin.</div>
-      </div>
-    );
-  }
 
-  // PieChart için label
+  // Sadece PieChart için geçerli olan renderPieLabel'ı burada tanımla
   const renderPieLabel = ({ name, percent }: any) =>
-    `${name} (${(percent * 100).toFixed(0)}%)`; // Yüzde olarak gösterelim
-
-
-  // Ortak eksen, tooltip ve legend prop'ları
-  const commonChartElements = (
-    <>
-      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-      <XAxis
-        dataKey="name"
-        angle={-35}
-        textAnchor="end"
-        height={100}
-        interval={0}
-        tickFormatter={(value) =>
-          value.length > 15 ? value.substring(0, 15) + "..." : value
-        }
-        tick={{ fill: "#555", fontSize: 13 }}
-      />
-      <YAxis
-        yAxisId="left"
-        orientation="left"
-        stroke={CORPORATE_COLOR}
-        tick={{ fill: "#555", fontSize: 13 }}
-        label={{
-          value: "Anlaşma Adedi",
-          angle: -90,
-          position: "insideLeft",
-          fill: CORPORATE_COLOR,
-          fontSize: 14,
-        }}
-      />
-      <YAxis
-        yAxisId="right"
-        orientation="right"
-        stroke={CORPORATE_COLOR_LIGHT}
-        tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
-        tick={{ fill: "#555", fontSize: 13 }}
-        label={{
-          value: "Toplam Tutar (₺)",
-          angle: 90,
-          position: "insideRight",
-          fill: CORPORATE_COLOR_LIGHT,
-          fontSize: 14,
-        }}
-      />
-      <Tooltip
-        cursor={{ fill: "rgba(0,0,0,0.05)" }}
-        formatter={(value: any, name: string) => {
-          if (name === "Toplam Tutar") {
-            return `₺${Number(value).toLocaleString("tr-TR")}`;
-          }
-          return value;
-        }}
-        labelFormatter={(label) => `Aşama: ${label}`}
-        contentStyle={{
-          borderRadius: "8px",
-          border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-        }}
-        itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
-      />
-      <Legend
-        wrapperStyle={{ paddingTop: "20px", fontSize: 16 }}
-        iconType="circle"
-        verticalAlign="top"
-        align="center"
-      />
-    </>
-  );
+    `${name} (${(percent * 100).toFixed(0)}%)`;
 
   // Dinamik grafik render fonksiyonu
   function renderChart() {
     const chartProps = {
       data: stats,
-      margin: { top: 20, right: 50, left: 40, bottom: 80 },
+      // Marginleri, X ekseni etiketleri için yeterli yer bırakacak şekilde ayarla
+      margin: { top: 20, right: 50, left: 40, bottom: 120 },
     };
 
+    // Tüm grafiklerde ortak olan eksen, tooltip ve legend bileşenlerini tanımla
+    // Bunları her bir Chart bileşeninin içine ayrı ayrı yerleştireceğiz.
+    const CommonChartElements = () => (
+      <>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+        <XAxis
+          dataKey="name"
+          angle={-45} // Etiket eğimini artır
+          textAnchor="end"
+          height={120} // X ekseni için daha fazla yükseklik
+          interval={0} // Tüm etiketleri göster
+          tickFormatter={(value) =>
+            value.length > 15 ? value.substring(0, 15) + "..." : value // Uzun etiketleri kısalt
+          }
+          tick={{ fill: "#555", fontSize: 12 }} // Font boyutunu küçült
+        />
+        <YAxis
+          yAxisId="left"
+          orientation="left"
+          stroke={CORPORATE_COLOR}
+          tick={{ fill: "#555", fontSize: 12 }}
+          label={{
+            value: "Anlaşma Adedi",
+            angle: -90,
+            position: "insideLeft",
+            fill: CORPORATE_COLOR,
+            fontSize: 14,
+          }}
+        />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          stroke={CORPORATE_COLOR_LIGHT}
+          tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
+          tick={{ fill: "#555", fontSize: 12 }}
+          label={{
+            value: "Toplam Tutar (₺)",
+            angle: 90,
+            position: "insideRight",
+            fill: CORPORATE_COLOR_LIGHT,
+            fontSize: 14,
+          }}
+        />
+        <Tooltip
+          cursor={{ fill: "rgba(0,0,0,0.05)" }}
+          formatter={(value: any, name: string) => {
+            if (name === "Toplam Tutar") {
+              return `₺${Number(value).toLocaleString("tr-TR")}`;
+            }
+            return value;
+          }}
+          labelFormatter={(label) => `Aşama: ${label}`}
+          contentStyle={{
+            borderRadius: "8px",
+            border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          }}
+          itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
+        />
+        <Legend
+          wrapperStyle={{ paddingTop: "20px", fontSize: 14 }}
+          iconType="circle"
+          verticalAlign="top"
+          align="center"
+        />
+      </>
+    );
+
+    // Seçilen grafik tipine göre ilgili grafik bileşenini döndür
     switch (selectedChart) {
       case "bar":
         return (
           <BarChart {...chartProps} barCategoryGap={30} barGap={4}>
-            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
+            <CommonChartElements />
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -187,7 +212,7 @@ export default function RaporlamaPage() {
       case "line":
         return (
           <LineChart {...chartProps}>
-            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
+            <CommonChartElements />
             <Line
               yAxisId="left"
               type="monotone"
@@ -211,7 +236,7 @@ export default function RaporlamaPage() {
       case "area":
         return (
           <AreaChart {...chartProps}>
-            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
+            <CommonChartElements />
             <Area
               yAxisId="left"
               type="monotone"
@@ -235,7 +260,7 @@ export default function RaporlamaPage() {
       case "composed":
         return (
           <ComposedChart {...chartProps}>
-            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
+            <CommonChartElements />
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -258,12 +283,9 @@ export default function RaporlamaPage() {
       case "pie":
         return (
           <PieChart width={600} height={430}>
-            {/* PieChart'ın kendi Tooltip ve Legend'ı var */}
+            {/* PieChart'ın Tooltip ve Legend'ı diğerlerinden farklı olduğu için ayrı ele alındı */}
             <Tooltip
-              formatter={(value: any, name: string) => {
-                // PieChart için Tooltip'te toplam tutar yerine sadece count gösteriyoruz
-                return value;
-              }}
+              formatter={(value: any, name: string) => value} // Pie chart için sadece değeri göster
               labelFormatter={(label) => `Aşama: ${label}`}
               contentStyle={{
                 borderRadius: "8px",
@@ -274,8 +296,8 @@ export default function RaporlamaPage() {
             />
             <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 16 }} />
             <Pie
-              data={stats}
-              dataKey="count" // Pie chart genellikle tek bir değeri (adet) gösterir
+              data={stats.map(s => ({ ...s, value: s.count }))} // Pie için value olarak 'count' kullan
+              dataKey="value" // 'value' anahtarını kullan
               nameKey="name"
               cx="50%"
               cy="48%"
@@ -316,9 +338,9 @@ export default function RaporlamaPage() {
                 : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400"
               }`}
             style={{
-                backgroundColor: selectedFilter === f.key ? CORPORATE_COLOR : undefined,
-                color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR,
-                borderColor: selectedFilter === f.key ? undefined : CORPORATE_COLOR_LIGHT,
+                backgroundColor: selectedFilter === f.key ? CORPORATE_COLOR : "white",
+                color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR_DARK, // Metin rengini de kurumsal ton yap
+                borderColor: CORPORATE_COLOR, // Kenarlık rengi kurumsal ton yap
             }}
             onClick={() => setSelectedFilter(f.key)}
           >
@@ -330,32 +352,38 @@ export default function RaporlamaPage() {
       <div className="max-w-7xl mx-auto">
         {/* Özet Kutuları */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {stats.map((info: any) => (
-            <div
-              key={info.id}
-              className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 flex flex-col items-center justify-center text-center transform hover:scale-105 transition-transform duration-300 ease-in-out group"
-            >
-              <h2 className="font-bold text-xl text-gray-700 mb-3 group-hover:text-blue-600 transition-colors" style={{ color: CORPORATE_COLOR }}>
-                {info.name}
-              </h2>
-              <div className="text-gray-600 text-base space-y-1">
-                <p>
-                  <span className="font-medium">Toplam Anlaşma:</span>{" "}
-                  <span className="font-bold text-lg" style={{ color: CORPORATE_COLOR_DARK }}>{info.count}</span>
-                </p>
-                <p>
-                  <span className="font-medium">Toplam Tutar:</span>{" "}
-                  <span className="font-extrabold text-xl" style={{ color: CORPORATE_COLOR }}>
-                    ₺{Number(info.totalAmount).toLocaleString("tr-TR")}
-                  </span>
-                </p>
+          {stats.length > 0 ? ( // stats boşsa kutuları gösterme
+            stats.map((info: any) => (
+              <div
+                key={info.id || info.name} // id yoksa name kullan
+                className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 flex flex-col items-center justify-center text-center transform hover:scale-105 transition-transform duration-300 ease-in-out group"
+              >
+                <h2 className="font-bold text-xl text-gray-700 mb-3 group-hover:text-blue-600 transition-colors" style={{ color: CORPORATE_COLOR_DARK }}>
+                  {info.name}
+                </h2>
+                <div className="text-gray-600 text-base space-y-1">
+                  <p>
+                    <span className="font-medium">Toplam Anlaşma:</span>{" "}
+                    <span className="font-bold text-lg" style={{ color: CORPORATE_COLOR }}>{info.count}</span>
+                  </p>
+                  <p>
+                    <span className="font-medium">Toplam Tutar:</span>{" "}
+                    <span className="font-extrabold text-xl" style={{ color: CORPORATE_COLOR_LIGHT }}>
+                      ₺{Number(info.totalAmount).toLocaleString("tr-TR")}
+                    </span>
+                  </p>
+                </div>
               </div>
+            ))
+          ) : (
+            <div className="md:col-span-3 text-center text-gray-600 text-lg">
+                Seçili döneme ait özet veri bulunamadı.
             </div>
-          ))}
+          )}
         </section>
 
         {/* Başlık + Grafik Tipi Butonları */}
-        <section className="bg-white rounded-2xl shadow-xl p-6 md:p-10 mb-8" style={{ height: 650 }}>
+        <section className="bg-white rounded-2xl shadow-xl p-6 md:p-10 mb-8" style={{ height: 800 }}>
           <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: CORPORATE_COLOR_DARK }}>
             Aşama Bazlı Anlaşma Dağılımı
           </h2>
@@ -367,7 +395,7 @@ export default function RaporlamaPage() {
                 className={`px-6 py-2 rounded-full font-semibold border transition-all duration-200
                   ${selectedChart === ct.key
                     ? "text-white"
-                    : `bg-white text-[${CORPORATE_COLOR_DARK}]`
+                    : "" // Tailwind sınıfları için boş bırakabiliriz, stil prop'undan devam ederiz
                   }`}
                 style={{
                   backgroundColor: selectedChart === ct.key ? CORPORATE_COLOR : "white",
@@ -382,8 +410,15 @@ export default function RaporlamaPage() {
             ))}
           </div>
           {/* Grafik */}
-          <ResponsiveContainer width="100%" height={500}>
-            {renderChart()}
+          {/* Recharts grafiklerini ResponsiveContainer içinde kullanmak en iyisidir.
+              Ancak ResponsiveContainer bazen flexbox gibi layout'larda %100 yükseklik alırken zorlanabilir.
+              Bu durumda, ResponsiveContainer'ın parent elementine belirli bir yükseklik vermek önemlidir. */}
+          <ResponsiveContainer width="100%" height={600}> {/* Container yüksekliğini artır */}
+            {stats.length > 0 ? renderChart() : ( // Veri yoksa grafiği render etme
+                <div className="flex justify-center items-center h-full text-gray-500 text-lg">
+                    Seçili döneme ait grafik verisi bulunamadı.
+                </div>
+            )}
           </ResponsiveContainer>
         </section>
       </div>
