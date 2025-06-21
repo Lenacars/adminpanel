@@ -29,64 +29,67 @@ const chartTypes = [
 ];
 
 // Kurumsal Renkler
-const CORPORATE_COLOR = "#6A3C96"; // Ana kurumsal renk
-const CORPORATE_COLOR_LIGHT = "#9a6cb6"; // Daha açık ton
-const CORPORATE_COLOR_DARK = "#4d296b"; // Daha koyu ton
+const CORPORATE_COLOR = "#6A3C96";
+const CORPORATE_COLOR_LIGHT = "#9a6cb6";
+const CORPORATE_COLOR_DARK = "#4d296b";
+const KPI_BG = "#F4EFFC";
 
 // Pasta Grafik Renkleri
 const PIE_COLORS = [
   CORPORATE_COLOR,
   CORPORATE_COLOR_LIGHT,
-  "#b28cce", // Mor tonu
-  "#c8a2de", // Mor tonu
-  "#ded1e8", // Mor tonu
-  "#7a4d9c", // Mor tonu
-  "#3f225e"  // Mor tonu
+  "#b28cce", "#c8a2de", "#ded1e8", "#7a4d9c", "#3f225e"
 ];
 
+// -- ÖNEMLİ: stats'ten özet KPI verisi çıkaran fonksiyon
+function getKpis(stats: any[]) {
+  const totalDeals = stats.reduce((sum, s) => sum + (s.count || 0), 0);
+  const kazandi = stats.find(s => (s.name || "").toLowerCase().includes("kazandı")) || { count: 0, totalAmount: 0 };
+  const kaybetti = stats.find(s => (s.name || "").toLowerCase().includes("kaybetti")) || { count: 0, totalAmount: 0 };
+  const totalAmount = stats.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+  const avgAmount = totalDeals > 0 ? totalAmount / totalDeals : 0;
+  const winRate = totalDeals > 0 ? (kazandi.count / totalDeals) * 100 : 0;
+  return {
+    totalDeals,
+    kazandiCount: kazandi.count,
+    kaybettiCount: kaybetti.count,
+    totalAmount,
+    avgAmount,
+    winRate,
+  };
+}
 
 export default function RaporlamaPage() {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState("1ay");
-  const [selectedChart, setSelectedChart] = useState("bar"); // Başlangıçta Çubuk Grafik seçili
+  const [selectedChart, setSelectedChart] = useState("bar");
 
   useEffect(() => {
-    console.log("Filtre değişti, yeni sorgu:", selectedFilter);
     setLoading(true);
-
     fetch(`/api/hubspot/deal-stats?period=${selectedFilter}`)
       .then((res) => {
-        if (!res.ok) {
-          console.error("API yanıtı OK değil:", res.status, res.statusText);
-          throw new Error("Sunucudan yanıt alınamadı.");
-        }
+        if (!res.ok) throw new Error("Sunucudan yanıt alınamadı.");
         return res.json();
       })
       .then((data) => {
-        console.log("API'dan gelen data:", data);
         if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-            setStats(data.data);
-            setError(null);
+          setStats(data.data);
+          setError(null);
         } else {
-            setStats([]);
-            setError("Gösterilecek veri bulunamadı. Filtreyi değiştirerek deneyin.");
+          setStats([]);
+          setError("Gösterilecek veri bulunamadı. Filtreyi değiştirerek deneyin.");
         }
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Veri çekme hatası:", err);
+      .catch(() => {
         setError("Veriler yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.");
         setLoading(false);
       });
   }, [selectedFilter]);
 
-  // Debug log: render edilen stats
-  console.log("RENDER ANINDA stats:", stats);
-
   if (loading) {
-    console.log("Yükleniyor durumu aktif.");
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-xl font-medium text-gray-700 animate-pulse">Veriler Yükleniyor...</div>
@@ -95,7 +98,6 @@ export default function RaporlamaPage() {
   }
 
   if (error) {
-    console.log("Hata durumu:", error);
     return (
       <div className="flex justify-center items-center h-screen bg-red-50 text-red-700 border border-red-300 rounded-lg p-6 m-4 shadow-md">
         <div className="text-xl font-medium">{error}</div>
@@ -103,20 +105,19 @@ export default function RaporlamaPage() {
     );
   }
 
-  // Sadece PieChart için geçerli olan renderPieLabel'ı burada tanımla
+  // KPI hesaplama
+  const kpis = getKpis(stats);
+
+  // Pie label
   const renderPieLabel = ({ name, percent }: any) =>
     `${name} (${(percent * 100).toFixed(0)}%)`;
 
-  // Dinamik grafik render fonksiyonu
+  // Grafik render (Aynı kodun devamı, sadeleştirildi)
   function renderChart() {
     const chartProps = {
       data: stats,
       margin: { top: 20, right: 50, left: 40, bottom: 120 },
     };
-
-    // Her grafik tipi için ortak olan alt bileşenler
-    // Bunları doğrudan her Chart bileşeninin içine yerleştireceğiz.
-
     switch (selectedChart) {
       case "bar":
         return (
@@ -169,19 +170,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
-              contentStyle={{
-                borderRadius: "8px",
-                border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
-              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
-            <Legend
-              wrapperStyle={{ paddingTop: "20px", fontSize: 14 }}
-              iconType="circle"
-              verticalAlign="top"
-              align="center"
-            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -251,19 +241,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
-              contentStyle={{
-                borderRadius: "8px",
-                border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
-              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
-            <Legend
-              wrapperStyle={{ paddingTop: "20px", fontSize: 14 }}
-              iconType="circle"
-              verticalAlign="top"
-              align="center"
-            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Line
               yAxisId="left"
               type="monotone"
@@ -335,19 +314,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
-              contentStyle={{
-                borderRadius: "8px",
-                border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
-              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
-            <Legend
-              wrapperStyle={{ paddingTop: "20px", fontSize: 14 }}
-              iconType="circle"
-              verticalAlign="top"
-              align="center"
-            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Area
               yAxisId="left"
               type="monotone"
@@ -419,19 +387,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
-              contentStyle={{
-                borderRadius: "8px",
-                border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
-              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
-            <Legend
-              wrapperStyle={{ paddingTop: "20px", fontSize: 14 }}
-              iconType="circle"
-              verticalAlign="top"
-              align="center"
-            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -454,20 +411,12 @@ export default function RaporlamaPage() {
       case "pie":
         return (
           <PieChart width={600} height={430}>
-            {/* PieChart'ın Tooltip ve Legend'ı diğerlerinden farklı olduğu için ayrı ele alındı */}
             <Tooltip
-              formatter={(value: any) => value} // Pie chart için sadece değeri göster
+              formatter={(value: any) => value}
               labelFormatter={(label) => `Aşama: ${label}`}
-              contentStyle={{
-                borderRadius: "8px",
-                border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
-              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
             <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 16 }} />
             <Pie
-              // Pie chart için 'value' anahtarını oluşturduk
               data={stats.map(s => ({ ...s, value: s.count }))}
               dataKey="value"
               nameKey="name"
@@ -499,7 +448,41 @@ export default function RaporlamaPage() {
         <p className="mt-2 text-lg text-gray-600">Seçili döneme göre anlaşma performansını inceleyin.</p>
       </header>
 
-      {/* Filtreleme Butonları */}
+      {/* --- KPI Kartları --- */}
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5 mb-10 max-w-7xl mx-auto">
+        <div className="flex flex-col items-center justify-center bg-white border rounded-xl shadow p-5" style={{ background: KPI_BG }}>
+          <span className="text-md text-gray-500 mb-1">Toplam Anlaşma</span>
+          <span className="text-2xl font-bold" style={{ color: CORPORATE_COLOR }}>{kpis.totalDeals}</span>
+        </div>
+        <div className="flex flex-col items-center justify-center bg-white border rounded-xl shadow p-5" style={{ background: KPI_BG }}>
+          <span className="text-md text-gray-500 mb-1">Toplam Kazanma</span>
+          <span className="text-2xl font-bold" style={{ color: CORPORATE_COLOR_DARK }}>{kpis.kazandiCount}</span>
+        </div>
+        <div className="flex flex-col items-center justify-center bg-white border rounded-xl shadow p-5" style={{ background: KPI_BG }}>
+          <span className="text-md text-gray-500 mb-1">Toplam Kayıp</span>
+          <span className="text-2xl font-bold" style={{ color: "#D13C3C" }}>{kpis.kaybettiCount}</span>
+        </div>
+        <div className="flex flex-col items-center justify-center bg-white border rounded-xl shadow p-5" style={{ background: KPI_BG }}>
+          <span className="text-md text-gray-500 mb-1">Toplam Tutar</span>
+          <span className="text-2xl font-bold" style={{ color: CORPORATE_COLOR }}>
+            ₺{Number(kpis.totalAmount).toLocaleString("tr-TR")}
+          </span>
+        </div>
+        <div className="flex flex-col items-center justify-center bg-white border rounded-xl shadow p-5" style={{ background: KPI_BG }}>
+          <span className="text-md text-gray-500 mb-1">Ort. Anlaşma Tutarı</span>
+          <span className="text-2xl font-bold" style={{ color: CORPORATE_COLOR }}>
+            ₺{Number(kpis.avgAmount).toLocaleString("tr-TR", { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+        <div className="flex flex-col items-center justify-center bg-white border rounded-xl shadow p-5" style={{ background: KPI_BG }}>
+          <span className="text-md text-gray-500 mb-1">Kazanma Oranı</span>
+          <span className="text-2xl font-bold" style={{ color: CORPORATE_COLOR_LIGHT }}>
+            %{kpis.winRate.toLocaleString("tr-TR", { maximumFractionDigits: 1 })}
+          </span>
+        </div>
+      </section>
+
+      {/* --- Filtreleme Butonları --- */}
       <section className="mb-4 flex justify-center gap-3 flex-wrap">
         {filters.map((f) => (
           <button
@@ -510,9 +493,9 @@ export default function RaporlamaPage() {
                 : ""
               }`}
             style={{
-                backgroundColor: selectedFilter === f.key ? CORPORATE_COLOR : "white",
-                color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR_DARK,
-                borderColor: CORPORATE_COLOR,
+              backgroundColor: selectedFilter === f.key ? CORPORATE_COLOR : "white",
+              color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR_DARK,
+              borderColor: CORPORATE_COLOR,
             }}
             onClick={() => setSelectedFilter(f.key)}
           >
@@ -549,7 +532,7 @@ export default function RaporlamaPage() {
             ))
           ) : (
             <div className="md:col-span-3 text-center text-gray-600 text-lg">
-                Seçili döneme ait özet veri bulunamadı.
+              Seçili döneme ait özet veri bulunamadı.
             </div>
           )}
         </section>
@@ -584,9 +567,9 @@ export default function RaporlamaPage() {
           {/* Grafik */}
           <ResponsiveContainer width="100%" height={600}>
             {stats.length > 0 ? renderChart() : (
-                <div className="flex justify-center items-center h-full text-gray-500 text-lg">
-                    Seçili döneme ait grafik verisi bulunamadı.
-                </div>
+              <div className="flex justify-center items-center h-full text-gray-500 text-lg">
+                Seçili döneme ait grafik verisi bulunamadı.
+              </div>
             )}
           </ResponsiveContainer>
         </section>
