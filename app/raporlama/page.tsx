@@ -54,8 +54,7 @@ export default function RaporlamaPage() {
         <div className="text-xl font-medium text-gray-700 animate-pulse">Veriler Yükleniyor...</div>
       </div>
     );
-  );
-  }
+  } // <-- Buradaki fazla parantezi sildik
 
   if (error) {
     return (
