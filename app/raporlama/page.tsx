@@ -21,6 +21,12 @@ const filters = [
   { key: "36ay", label: "Son 36 Ay" },
 ];
 
+// Kurumsal renk kodunu buraya tanımlıyoruz, böylece kolayca erişebiliriz.
+const CORPORATE_COLOR = "#6A3C96";
+const CORPORATE_COLOR_LIGHT = "#9a6cb6"; // Kurumsal rengin daha açık bir tonu
+const CORPORATE_COLOR_DARK = "#4d296b"; // Kurumsal rengin daha koyu bir tonu
+
+
 export default function RaporlamaPage() {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +91,7 @@ export default function RaporlamaPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10 lg:p-12">
       <header className="mb-8 text-center">
-        <h1 className="text-4xl font-extrabold text-gray-800 tracking-tight">
+        <h1 className="text-4xl font-extrabold text-gray-800 tracking-tight" style={{ color: CORPORATE_COLOR_DARK }}>
           HubSpot Anlaşma Raporları
         </h1>
         <p className="mt-2 text-lg text-gray-600">Seçili döneme göre anlaşma performansını inceleyin.</p>
@@ -98,9 +104,14 @@ export default function RaporlamaPage() {
             key={f.key}
             className={`px-6 py-2 rounded-full font-semibold transition-all duration-300 ease-in-out shadow-sm
               ${selectedFilter === f.key
-                ? "bg-blue-700 text-white shadow-lg transform scale-105"
-                : "bg-white text-blue-600 border border-blue-300 hover:bg-blue-50 hover:border-blue-400"
+                ? "text-white shadow-lg transform scale-105"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400"
               }`}
+            style={{
+                backgroundColor: selectedFilter === f.key ? CORPORATE_COLOR : undefined,
+                color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR, // Seçili değilse kurumsal renk metin rengi
+                borderColor: selectedFilter === f.key ? undefined : CORPORATE_COLOR_LIGHT, // Seçili değilse hafif kurumsal renk kenarlık
+            }}
             onClick={() => {
               console.log("Filtreye tıklandı:", f.key);
               setSelectedFilter(f.key);
@@ -119,17 +130,17 @@ export default function RaporlamaPage() {
               key={info.id}
               className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 flex flex-col items-center justify-center text-center transform hover:scale-105 transition-transform duration-300 ease-in-out group"
             >
-              <h2 className="font-bold text-xl text-gray-700 mb-3 group-hover:text-blue-600 transition-colors">
+              <h2 className="font-bold text-xl text-gray-700 mb-3 group-hover:text-blue-600 transition-colors" style={{ color: CORPORATE_COLOR }}>
                 {info.name}
               </h2>
               <div className="text-gray-600 text-base space-y-1">
                 <p>
                   <span className="font-medium">Toplam Anlaşma:</span>{" "}
-                  <span className="text-blue-600 font-bold text-lg">{info.count}</span>
+                  <span className="font-bold text-lg" style={{ color: CORPORATE_COLOR_DARK }}>{info.count}</span>
                 </p>
                 <p>
                   <span className="font-medium">Toplam Tutar:</span>{" "}
-                  <span className="text-green-600 font-extrabold text-xl">
+                  <span className="font-extrabold text-xl" style={{ color: CORPORATE_COLOR }}>
                     ₺{Number(info.totalAmount).toLocaleString("tr-TR")}
                   </span>
                 </p>
@@ -139,58 +150,59 @@ export default function RaporlamaPage() {
         </section>
 
         {/* Grafik Alanı */}
-        <section className="bg-white rounded-2xl shadow-xl p-6 md:p-8 lg:p-10 mb-8 h-[500px]">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+        <section className="bg-white rounded-2xl shadow-xl p-6 md:p-10 mb-8" style={{ height: 600 }}>
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center" style={{ color: CORPORATE_COLOR_DARK }}>
             Aşama Bazlı Anlaşma Dağılımı
           </h2>
-          {/* GRAFİK ÖNCESİ LOG */}
           {console.log("BarChart'a giden stats:", stats)}
-          <ResponsiveContainer width="100%" height={400}>
+          <ResponsiveContainer width="100%" height={500}>
             <BarChart
               data={stats}
+              barCategoryGap={60} // Barlar arası boşluk
+              barGap={8}
               margin={{
                 top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5,
+                right: 40,
+                left: 30,
+                bottom: 40,
               }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
               <XAxis
                 dataKey="name"
-                angle={-30}
+                angle={-18}
                 textAnchor="end"
                 height={80}
                 tickFormatter={(value) =>
-                  value.length > 15 ? value.substring(0, 15) + "..." : value
+                  value.length > 18 ? value.substring(0, 18) + "..." : value
                 }
-                tick={{ fill: "#555", fontSize: 12 }}
+                tick={{ fill: "#555", fontSize: 16 }}
               />
               <YAxis
                 yAxisId="left"
                 orientation="left"
-                stroke="#2563eb"
-                tick={{ fill: "#555", fontSize: 12 }}
+                stroke={CORPORATE_COLOR} // Sol Y ekseni kurumsal renk
+                tick={{ fill: "#555", fontSize: 15 }}
                 label={{
                   value: "Anlaşma Adedi",
                   angle: -90,
                   position: "insideLeft",
-                  fill: "#2563eb",
+                  fill: CORPORATE_COLOR, // Sol eksen etiketi kurumsal renk
+                  fontSize: 16,
                 }}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                stroke="#16a34a"
-                tickFormatter={(val: any) =>
-                  `₺${Number(val).toLocaleString("tr-TR")}`
-                }
-                tick={{ fill: "#555", fontSize: 12 }}
+                stroke={CORPORATE_COLOR_LIGHT} // Sağ Y ekseni daha açık kurumsal renk
+                tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
+                tick={{ fill: "#555", fontSize: 15 }}
                 label={{
                   value: "Toplam Tutar (₺)",
                   angle: 90,
                   position: "insideRight",
-                  fill: "#16a34a",
+                  fill: CORPORATE_COLOR_LIGHT, // Sağ eksen etiketi daha açık kurumsal renk
+                  fontSize: 16,
                 }}
               />
               <Tooltip
@@ -204,13 +216,13 @@ export default function RaporlamaPage() {
                 labelFormatter={(label) => `Aşama: ${label}`}
                 contentStyle={{
                   borderRadius: "8px",
-                  border: "1px solid #e0e0e0",
+                  border: `1px solid ${CORPORATE_COLOR_LIGHT}`, // Tooltip kenarlığı hafif kurumsal renk
                   boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
-                itemStyle={{ padding: "4px 0" }}
+                itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }} // Tooltip metin rengi koyu kurumsal renk
               />
               <Legend
-                wrapperStyle={{ paddingTop: "20px" }}
+                wrapperStyle={{ paddingTop: "20px", fontSize: 18 }}
                 iconType="circle"
                 verticalAlign="top"
                 align="right"
@@ -218,17 +230,17 @@ export default function RaporlamaPage() {
               <Bar
                 yAxisId="left"
                 dataKey="count"
-                fill="#3b82f6"
+                fill={CORPORATE_COLOR} // Bar rengi kurumsal renk
                 name="Anlaşma Adedi"
-                barSize={30}
+                barSize={28}
                 radius={[4, 4, 0, 0]}
               />
               <Bar
                 yAxisId="right"
                 dataKey="totalAmount"
-                fill="#22c55e"
+                fill={CORPORATE_COLOR_LIGHT} // Diğer bar rengi daha açık kurumsal renk
                 name="Toplam Tutar"
-                barSize={30}
+                barSize={28}
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
