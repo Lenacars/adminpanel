@@ -83,8 +83,76 @@ export default function RaporlamaPage() {
   }
 
   // PieChart için label
-  const renderPieLabel = (entry: any) =>
-    `${entry.name} (${entry.count})`;
+  const renderPieLabel = ({ name, percent }: any) =>
+    `${name} (${(percent * 100).toFixed(0)}%)`; // Yüzde olarak gösterelim
+
+
+  // Ortak eksen, tooltip ve legend prop'ları
+  const commonChartElements = (
+    <>
+      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+      <XAxis
+        dataKey="name"
+        angle={-35}
+        textAnchor="end"
+        height={100}
+        interval={0}
+        tickFormatter={(value) =>
+          value.length > 15 ? value.substring(0, 15) + "..." : value
+        }
+        tick={{ fill: "#555", fontSize: 13 }}
+      />
+      <YAxis
+        yAxisId="left"
+        orientation="left"
+        stroke={CORPORATE_COLOR}
+        tick={{ fill: "#555", fontSize: 13 }}
+        label={{
+          value: "Anlaşma Adedi",
+          angle: -90,
+          position: "insideLeft",
+          fill: CORPORATE_COLOR,
+          fontSize: 14,
+        }}
+      />
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        stroke={CORPORATE_COLOR_LIGHT}
+        tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
+        tick={{ fill: "#555", fontSize: 13 }}
+        label={{
+          value: "Toplam Tutar (₺)",
+          angle: 90,
+          position: "insideRight",
+          fill: CORPORATE_COLOR_LIGHT,
+          fontSize: 14,
+        }}
+      />
+      <Tooltip
+        cursor={{ fill: "rgba(0,0,0,0.05)" }}
+        formatter={(value: any, name: string) => {
+          if (name === "Toplam Tutar") {
+            return `₺${Number(value).toLocaleString("tr-TR")}`;
+          }
+          return value;
+        }}
+        labelFormatter={(label) => `Aşama: ${label}`}
+        contentStyle={{
+          borderRadius: "8px",
+          border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        }}
+        itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
+      />
+      <Legend
+        wrapperStyle={{ paddingTop: "20px", fontSize: 16 }}
+        iconType="circle"
+        verticalAlign="top"
+        align="center"
+      />
+    </>
+  );
 
   // Dinamik grafik render fonksiyonu
   function renderChart() {
@@ -92,77 +160,12 @@ export default function RaporlamaPage() {
       data: stats,
       margin: { top: 20, right: 50, left: 40, bottom: 80 },
     };
-    const sharedElements = (
-      <>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-        <XAxis
-          dataKey="name"
-          angle={-35}
-          textAnchor="end"
-          height={100}
-          interval={0}
-          tickFormatter={(value) =>
-            value.length > 15 ? value.substring(0, 15) + "..." : value
-          }
-          tick={{ fill: "#555", fontSize: 13 }}
-        />
-        <YAxis
-          yAxisId="left"
-          orientation="left"
-          stroke={CORPORATE_COLOR}
-          tick={{ fill: "#555", fontSize: 13 }}
-          label={{
-            value: "Anlaşma Adedi",
-            angle: -90,
-            position: "insideLeft",
-            fill: CORPORATE_COLOR,
-            fontSize: 14,
-          }}
-        />
-        <YAxis
-          yAxisId="right"
-          orientation="right"
-          stroke={CORPORATE_COLOR_LIGHT}
-          tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
-          tick={{ fill: "#555", fontSize: 13 }}
-          label={{
-            value: "Toplam Tutar (₺)",
-            angle: 90,
-            position: "insideRight",
-            fill: CORPORATE_COLOR_LIGHT,
-            fontSize: 14,
-          }}
-        />
-        <Tooltip
-          cursor={{ fill: "rgba(0,0,0,0.05)" }}
-          formatter={(value: any, name: string) => {
-            if (name === "Toplam Tutar") {
-              return `₺${Number(value).toLocaleString("tr-TR")}`;
-            }
-            return value;
-          }}
-          labelFormatter={(label) => `Aşama: ${label}`}
-          contentStyle={{
-            borderRadius: "8px",
-            border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          }}
-          itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
-        />
-        <Legend
-          wrapperStyle={{ paddingTop: "20px", fontSize: 16 }}
-          iconType="circle"
-          verticalAlign="top"
-          align="center"
-        />
-      </>
-    );
 
     switch (selectedChart) {
       case "bar":
         return (
           <BarChart {...chartProps} barCategoryGap={30} barGap={4}>
-            {sharedElements}
+            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -184,7 +187,7 @@ export default function RaporlamaPage() {
       case "line":
         return (
           <LineChart {...chartProps}>
-            {sharedElements}
+            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
             <Line
               yAxisId="left"
               type="monotone"
@@ -208,7 +211,7 @@ export default function RaporlamaPage() {
       case "area":
         return (
           <AreaChart {...chartProps}>
-            {sharedElements}
+            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
             <Area
               yAxisId="left"
               type="monotone"
@@ -232,7 +235,7 @@ export default function RaporlamaPage() {
       case "composed":
         return (
           <ComposedChart {...chartProps}>
-            {sharedElements}
+            {commonChartElements} {/* Ortak elementleri buraya ekliyoruz */}
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -255,11 +258,24 @@ export default function RaporlamaPage() {
       case "pie":
         return (
           <PieChart width={600} height={430}>
-            <Tooltip />
-            <Legend verticalAlign="bottom" iconType="circle" />
+            {/* PieChart'ın kendi Tooltip ve Legend'ı var */}
+            <Tooltip
+              formatter={(value: any, name: string) => {
+                // PieChart için Tooltip'te toplam tutar yerine sadece count gösteriyoruz
+                return value;
+              }}
+              labelFormatter={(label) => `Aşama: ${label}`}
+              contentStyle={{
+                borderRadius: "8px",
+                border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
+            />
+            <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 16 }} />
             <Pie
               data={stats}
-              dataKey="count"
+              dataKey="count" // Pie chart genellikle tek bir değeri (adet) gösterir
               nameKey="name"
               cx="50%"
               cy="48%"
@@ -349,10 +365,10 @@ export default function RaporlamaPage() {
               <button
                 key={ct.key}
                 className={`px-6 py-2 rounded-full font-semibold border transition-all duration-200
-                ${selectedChart === ct.key
-                  ? "text-white"
-                  : `bg-white text-[${CORPORATE_COLOR_DARK}]`
-                }`}
+                  ${selectedChart === ct.key
+                    ? "text-white"
+                    : `bg-white text-[${CORPORATE_COLOR_DARK}]`
+                  }`}
                 style={{
                   backgroundColor: selectedChart === ct.key ? CORPORATE_COLOR : "white",
                   color: selectedChart === ct.key ? "white" : CORPORATE_COLOR_DARK,
