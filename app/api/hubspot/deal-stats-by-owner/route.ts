@@ -42,7 +42,7 @@ function getPeriodStart(period: string): Date | null {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const pipelineId = "12060148"; // Pipeline ID'nizi buraya yazın
+  const pipelineId = searchParams.get("pipelineId") || "default";
   const period = searchParams.get("period") || "1ay";
   const minDate = getPeriodStart(period);
 
@@ -81,7 +81,6 @@ export async function GET(req: NextRequest) {
       filteredDeals = allDeals.filter(deal => {
         const rawDate = deal.properties?.createdate;
         if (!rawDate) return false;
-        // ISO string veya milisaniye olarak parse et
         const dt = isNaN(Number(rawDate)) ? new Date(rawDate) : new Date(Number(rawDate));
         return dt >= minDate;
       });
@@ -97,7 +96,6 @@ export async function GET(req: NextRequest) {
       stats[ownerId].totalAmount += amount;
     });
 
-    // Sonuç objesi
     const result = Object.entries(stats).map(([ownerId, d]) => ({
       ownerId,
       ownerName: USER_MAP[ownerId] || ownerId,
