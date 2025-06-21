@@ -10,6 +10,15 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from "recharts";
 
+// Tarih seçici için importlar
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css"; // DatePicker stilleri
+
+// Excel dışa aktarım için importlar
+import * as XLSX from "xlsx"; // XLSX yerine * as XLSX kullanmak daha yaygındır
+// import { utils, writeFile } from "xlsx"; // Yukarıdaki gibi de import edilebilir
+
+
 // Filtre seçenekleri
 const filters = [
   { key: "1ay", label: "Son 1 Ay" },
@@ -29,9 +38,9 @@ const chartTypes = [
 ];
 
 // Kurumsal Renkler
-const CORPORATE_COLOR = "#6A3C96";
-const CORPORATE_COLOR_LIGHT = "#9a6cb6";
-const CORPORATE_COLOR_DARK = "#4d296b";
+const CORPORATE_COLOR = "#6A3C96"; // Ana kurumsal renk
+const CORPORATE_COLOR_LIGHT = "#9a6cb6"; // Daha açık ton
+const CORPORATE_COLOR_DARK = "#4d296b"; // Daha koyu ton
 const KPI_BG = "#F4EFFC";
 
 // Pasta Grafik Renkleri
@@ -64,46 +73,92 @@ export default function RaporlamaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState("1ay");
-  const [selectedChart, setSelectedChart] = useState("bar");
+  const [selectedChart, setSelectedChart] = useState("bar"); // Başlangıçta Çubuk Grafik seçili
 
-  useEffect(() => {
+  // --- YENİ EKLENEN STATE'LER ---
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [startDate, endDate] = dateRange;
+  // ------------------------------
+
+  // Veri çekme fonksiyonu - Tarih aralığını da destekleyecek şekilde güncellendi
+  const fetchData = (period?: string, start?: Date | null, end?: Date | null) => {
     setLoading(true);
-    fetch(`/api/hubspot/deal-stats?period=${selectedFilter}`)
+    setError(null); // Yeni fetch'te hatayı temizle
+
+    let apiUrl = `/api/hubspot/deal-stats`;
+    if (period) {
+      apiUrl += `?period=${period}`;
+    } else if (start && end) {
+      // Tarih aralığı varsa, API'ye başlangıç ve bitiş tarihini gönder
+      apiUrl += `?startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
+    }
+
+    fetch(apiUrl)
       .then((res) => {
-        if (!res.ok) throw new Error("Sunucudan yanıt alınamadı.");
+        if (!res.ok) {
+          console.error("API yanıtı OK değil:", res.status, res.statusText);
+          throw new Error("Sunucudan yanıt alınamadı.");
+        }
         return res.json();
       })
       .then((data) => {
+        console.log("API'dan gelen data:", data);
         if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-          setStats(data.data);
-          setError(null);
+            setStats(data.data);
+            setError(null);
         } else {
-          setStats([]);
-          setError("Gösterilecek veri bulunamadı. Filtreyi değiştirerek deneyin.");
+            setStats([]);
+            setError("Gösterilecek veri bulunamadı. Filtreyi veya tarih aralığını değiştirerek deneyin.");
         }
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Veri çekme hatası:", err);
         setError("Veriler yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.");
         setLoading(false);
       });
-  }, [selectedFilter]);
+  };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="text-xl font-medium text-gray-700 animate-pulse">Veriler Yükleniyor...</div>
-      </div>
-    );
-  }
+  // useEffect - selectedFilter değiştiğinde veri çeker
+  useEffect(() => {
+    // Özel tarih aralığı seçili değilse filtreye göre veri çek
+    if (!startDate && !endDate) {
+      fetchData(selectedFilter);
+    }
+  }, [selectedFilter, startDate, endDate]); // startDate ve endDate de dinlenmeli ki, eğer seçilirse bu useEffect tekrar çalışmasın
 
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-red-50 text-red-700 border border-red-300 rounded-lg p-6 m-4 shadow-md">
-        <div className="text-xl font-medium">{error}</div>
-      </div>
-    );
-  }
+  // Tarih aralığı seçildiğinde çalışacak özel fetch fonksiyonu
+  const fetchWithDateRange = () => {
+    if (startDate && endDate) {
+      // Filtre seçimini sıfırla, çünkü özel tarih aralığı kullanılıyor
+      setSelectedFilter("");
+      fetchData(undefined, startDate, endDate);
+    }
+  };
+
+  // --- EXCEL EXPORT FONKSİYONU ---
+  const exportToExcel = () => {
+    if (!stats.length) {
+      alert("Dışa aktarılacak veri bulunamadı!");
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(stats);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rapor");
+    // Dosya adını dinamik olarak oluştur (filtreye veya tarihe göre)
+    let fileName = `hubspot_rapor`;
+    if (selectedFilter) {
+      fileName += `_${selectedFilter}`;
+    } else if (startDate && endDate) {
+      fileName += `_${startDate.toISOString().slice(0, 10)}_${endDate.toISOString().slice(0, 10)}`;
+    }
+    fileName += `_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    XLSX.writeFile(wb, fileName);
+    alert("Veriler Excel'e başarıyla aktarıldı!");
+  };
+  // ------------------------------
 
   // KPI hesaplama
   const kpis = getKpis(stats);
@@ -170,6 +225,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
             <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Bar
@@ -241,6 +298,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
             <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Line
@@ -314,6 +373,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
             <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Area
@@ -387,6 +448,8 @@ export default function RaporlamaPage() {
                 return value;
               }}
               labelFormatter={(label) => `Aşama: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
             <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Bar
@@ -482,26 +545,75 @@ export default function RaporlamaPage() {
         </div>
       </section>
 
-      {/* --- Filtreleme Butonları --- */}
-      <section className="mb-4 flex justify-center gap-3 flex-wrap">
+      {/* --- Filtreleme ve Tarih Seçici Bölümü --- */}
+      <section className="mb-8 flex flex-col sm:flex-row justify-center items-center gap-4 flex-wrap">
+        {/* Hazır filtre butonları */}
         {filters.map((f) => (
           <button
             key={f.key}
             className={`px-6 py-2 rounded-full font-semibold transition-all duration-300 ease-in-out shadow-sm
-              ${selectedFilter === f.key
+              ${selectedFilter === f.key && !startDate // startDate seçili değilse bu filtre aktif
                 ? "text-white shadow-lg transform scale-105"
                 : ""
               }`}
             style={{
-              backgroundColor: selectedFilter === f.key ? CORPORATE_COLOR : "white",
-              color: selectedFilter === f.key ? 'white' : CORPORATE_COLOR_DARK,
-              borderColor: CORPORATE_COLOR,
+                backgroundColor: selectedFilter === f.key && !startDate ? CORPORATE_COLOR : "white",
+                color: selectedFilter === f.key && !startDate ? 'white' : CORPORATE_COLOR_DARK,
+                borderColor: CORPORATE_COLOR,
             }}
-            onClick={() => setSelectedFilter(f.key)}
+            onClick={() => {
+              setSelectedFilter(f.key);
+              setDateRange([null, null]); // Tarih aralığını sıfırla
+            }}
           >
             {f.label}
           </button>
         ))}
+
+        {/* Tarih Aralığı Filtresi */}
+        <div className="flex items-center gap-3 ml-4">
+          <span className="font-medium text-gray-700">Tarih Aralığı:</span>
+          <DatePicker
+            selectsRange={true}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(update: [Date | null, Date | null]) => {
+              setDateRange(update);
+              // Eğer her iki tarih de seçiliyse ve daha önce bir filtre seçiliyse onu sıfırla
+              if (update[0] && update[1]) {
+                setSelectedFilter("");
+              }
+            }}
+            isClearable={true}
+            dateFormat="dd.MM.yyyy"
+            placeholderText="Tarih seçin"
+            className="border p-2 rounded-lg focus:ring-2 focus:ring-purple-300 focus:border-purple-300"
+            wrapperClassName="w-48" // Genişliği ayarla
+          />
+          <button
+            className={`px-4 py-2 rounded-full font-semibold transition-all duration-200 shadow-sm
+              ${(startDate && endDate) // Tarih aralığı seçiliyse buton aktif
+                ? "text-white shadow-md transform scale-105"
+                : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+            style={{
+                backgroundColor: (startDate && endDate) ? CORPORATE_COLOR : undefined,
+                color: (startDate && endDate) ? 'white' : undefined,
+            }}
+            onClick={fetchWithDateRange}
+            disabled={!startDate || !endDate}
+          >
+            Filtrele
+          </button>
+        </div>
+        
+        {/* Excel'e Aktar Butonu */}
+        <button
+          className="ml-4 px-6 py-2 bg-green-600 text-white rounded-full font-semibold hover:bg-green-700 transition-colors shadow-md"
+          onClick={exportToExcel}
+        >
+          Excel'e Aktar
+        </button>
       </section>
 
       <div className="max-w-7xl mx-auto">
@@ -531,8 +643,9 @@ export default function RaporlamaPage() {
               </div>
             ))
           ) : (
-            <div className="md:col-span-3 text-center text-gray-600 text-lg">
-              Seçili döneme ait özet veri bulunamadı.
+            // stats boşsa ve hata mesajı yoksa "veri bulunamadı" göster
+            !error && <div className="md:col-span-3 text-center text-gray-600 text-lg">
+                Seçili döneme ait özet veri bulunamadı.
             </div>
           )}
         </section>
@@ -567,9 +680,9 @@ export default function RaporlamaPage() {
           {/* Grafik */}
           <ResponsiveContainer width="100%" height={600}>
             {stats.length > 0 ? renderChart() : (
-              <div className="flex justify-center items-center h-full text-gray-500 text-lg">
-                Seçili döneme ait grafik verisi bulunamadı.
-              </div>
+                <div className="flex justify-center items-center h-full text-gray-500 text-lg">
+                    Seçili döneme ait grafik verisi bulunamadı.
+                </div>
             )}
           </ResponsiveContainer>
         </section>
