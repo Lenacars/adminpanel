@@ -28,18 +28,22 @@ export default function RaporlamaPage() {
   const [selectedFilter, setSelectedFilter] = useState("1ay");
 
   useEffect(() => {
+    console.log("Filtre değişti, yeni sorgu:", selectedFilter);
     setLoading(true);
+
     fetch(`/api/hubspot/deal-stats?period=${selectedFilter}`)
       .then((res) => {
         if (!res.ok) {
+          console.error("API yanıtı OK değil:", res.status, res.statusText);
           throw new Error("Sunucudan yanıt alınamadı.");
         }
         return res.json();
       })
       .then((data) => {
+        console.log("API'dan gelen data:", data);
         setStats(data.data || []);
         setLoading(false);
-        setError(null); // Başarılı olduğunda hatayı temizle
+        setError(null);
       })
       .catch((err) => {
         console.error("Veri çekme hatası:", err);
@@ -48,15 +52,20 @@ export default function RaporlamaPage() {
       });
   }, [selectedFilter]);
 
+  // Debug log: render edilen stats
+  console.log("RENDER ANINDA stats:", stats);
+
   if (loading) {
+    console.log("Yükleniyor durumu aktif.");
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-xl font-medium text-gray-700 animate-pulse">Veriler Yükleniyor...</div>
       </div>
     );
-  } // <-- Buradaki fazla parantezi sildik
+  }
 
   if (error) {
+    console.log("Hata durumu:", error);
     return (
       <div className="flex justify-center items-center h-screen bg-red-50 text-red-700 border border-red-300 rounded-lg p-6 m-4 shadow-md">
         <div className="text-xl font-medium">{error}</div>
@@ -65,6 +74,7 @@ export default function RaporlamaPage() {
   }
 
   if (!stats.length) {
+    console.log("Boş veri! Stats uzunluğu:", stats.length);
     return (
       <div className="flex justify-center items-center h-screen bg-yellow-50 text-yellow-700 border border-yellow-300 rounded-lg p-6 m-4 shadow-md">
         <div className="text-xl font-medium">Gösterilecek kayıt bulunamadı. Lütfen filtreyi değiştirerek tekrar deneyin.</div>
@@ -91,7 +101,10 @@ export default function RaporlamaPage() {
                 ? "bg-blue-700 text-white shadow-lg transform scale-105"
                 : "bg-white text-blue-600 border border-blue-300 hover:bg-blue-50 hover:border-blue-400"
               }`}
-            onClick={() => setSelectedFilter(f.key)}
+            onClick={() => {
+              console.log("Filtreye tıklandı:", f.key);
+              setSelectedFilter(f.key);
+            }}
           >
             {f.label}
           </button>
@@ -130,7 +143,9 @@ export default function RaporlamaPage() {
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
             Aşama Bazlı Anlaşma Dağılımı
           </h2>
-          <ResponsiveContainer width="100%" height="calc(100% - 40px)"> {/* Başlık yüksekliğini düşerek ayarla */}
+          {/* GRAFİK ÖNCESİ LOG */}
+          {console.log("BarChart'a giden stats:", stats)}
+          <ResponsiveContainer width="100%" height={400}>
             <BarChart
               data={stats}
               margin={{
@@ -146,7 +161,9 @@ export default function RaporlamaPage() {
                 angle={-30}
                 textAnchor="end"
                 height={80}
-                tickFormatter={(value) => value.length > 15 ? value.substring(0, 15) + '...' : value} // Uzun isimler için kısaltma
+                tickFormatter={(value) =>
+                  value.length > 15 ? value.substring(0, 15) + "..." : value
+                }
                 tick={{ fill: "#555", fontSize: 12 }}
               />
               <YAxis
@@ -154,15 +171,27 @@ export default function RaporlamaPage() {
                 orientation="left"
                 stroke="#2563eb"
                 tick={{ fill: "#555", fontSize: 12 }}
-                label={{ value: 'Anlaşma Adedi', angle: -90, position: 'insideLeft', fill: '#2563eb' }}
+                label={{
+                  value: "Anlaşma Adedi",
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: "#2563eb",
+                }}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
                 stroke="#16a34a"
-                tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
+                tickFormatter={(val: any) =>
+                  `₺${Number(val).toLocaleString("tr-TR")}`
+                }
                 tick={{ fill: "#555", fontSize: 12 }}
-                label={{ value: 'Toplam Tutar (₺)', angle: 90, position: 'insideRight', fill: '#16a34a' }}
+                label={{
+                  value: "Toplam Tutar (₺)",
+                  angle: 90,
+                  position: "insideRight",
+                  fill: "#16a34a",
+                }}
               />
               <Tooltip
                 cursor={{ fill: "rgba(0,0,0,0.05)" }}
@@ -173,7 +202,11 @@ export default function RaporlamaPage() {
                   return value;
                 }}
                 labelFormatter={(label) => `Aşama: ${label}`}
-                contentStyle={{ borderRadius: "8px", border: "1px solid #e0e0e0", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                contentStyle={{
+                  borderRadius: "8px",
+                  border: "1px solid #e0e0e0",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                }}
                 itemStyle={{ padding: "4px 0" }}
               />
               <Legend
@@ -182,8 +215,22 @@ export default function RaporlamaPage() {
                 verticalAlign="top"
                 align="right"
               />
-              <Bar yAxisId="left" dataKey="count" fill="#3b82f6" name="Anlaşma Adedi" barSize={30} radius={[4, 4, 0, 0]} />
-              <Bar yAxisId="right" dataKey="totalAmount" fill="#22c55e" name="Toplam Tutar" barSize={30} radius={[4, 4, 0, 0]} />
+              <Bar
+                yAxisId="left"
+                dataKey="count"
+                fill="#3b82f6"
+                name="Anlaşma Adedi"
+                barSize={30}
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                yAxisId="right"
+                dataKey="totalAmount"
+                fill="#22c55e"
+                name="Toplam Tutar"
+                barSize={30}
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </section>
