@@ -1,8 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
-// Filtre seçenekleri (24 ve 36 ay dahil)
+// Filtre seçenekleri
 const filters = [
   { key: "1ay", label: "Son 1 Ay" },
   { key: "6ay", label: "Son 6 Ay" },
@@ -53,7 +63,8 @@ export default function RaporlamaPage() {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* KUTULAR */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {stats.map((info: any) => (
           <div
             key={info.id}
@@ -71,6 +82,21 @@ export default function RaporlamaPage() {
             </p>
           </div>
         ))}
+      </div>
+      {/* GRAFİK */}
+      <div className="w-full h-[400px] bg-white rounded-2xl shadow-md p-4">
+        <h2 className="text-lg font-semibold mb-4">Aşama Bazlı Dağılım Grafiği</h2>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={stats}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip formatter={(val: any) => Number(val).toLocaleString("tr-TR")} />
+            <Legend />
+            <Bar dataKey="count" fill="#2563eb" name="Adet" />
+            <Bar dataKey="totalAmount" fill="#16a34a" name="Toplam Tutar" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
