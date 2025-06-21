@@ -4,19 +4,18 @@ import { NextResponse } from "next/server";
 
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
-const PIPELINE_ID = "12060148"; // Pipeline ID'nin doğru olduğuna emin ol
+const PIPELINE_ID = "default"; // Varsayılan pipeline için "default" kullan
 
-// Kullanacağın stage ID'lerini buraya yaz!
+// Kendi pipeline'ındaki stage ID ve isimleri ile güncelle
 const stageMap = {
-  "2509884644": "Teklif İletilecek",
   "appointmentscheduled": "Teklif Gönderildi",
   "qualifiedtobuy": "Teklife Dönüş Sağladı",
   "presentationscheduled": "Revize Teklif İstedi",
   "decisionmakerboughtin": "Değerlendirme Aşamasında",
   "contractsent": "Mali Evrak İletti",
-  "672697843": "Sözleşme İletildi",
-  "closedwon": "Won",
-  "closedlost": "Lost",
+  "closedwon": "Kazandı",
+  "closedlost": "Kaybetti",
+  // Pipeline ayarlarından diğer stage ID'lerini buraya ekleyebilirsin
 };
 
 export async function GET() {
