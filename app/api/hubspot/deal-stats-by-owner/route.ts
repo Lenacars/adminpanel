@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
 
-// Owner isimlerini çek (paginated)
+// Owner isimlerini paginated olarak çeker ve harita oluşturur
 async function fetchOwners(): Promise<Record<string, string>> {
   let after: string | undefined = undefined;
   let owners: any[] = [];
@@ -23,13 +23,10 @@ async function fetchOwners(): Promise<Record<string, string>> {
 
   const map: Record<string, string> = {};
   owners.forEach((o: any) => {
-    if (o.firstName || o.lastName) {
-      map[o.id] = `${o.firstName || ""} ${o.lastName || ""}`.trim();
-    } else if (o.email) {
-      map[o.id] = o.email;
-    } else {
-      map[o.id] = o.id;
-    }
+    map[o.id] =
+      o.firstName || o.lastName
+        ? `${o.firstName || ""} ${o.lastName || ""}`.trim()
+        : o.email || o.id;
   });
   return map;
 }
@@ -37,19 +34,44 @@ async function fetchOwners(): Promise<Record<string, string>> {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const pipelineId = searchParams.get("pipelineId") || "default";
-  const period = searchParams.get("period"); // eklendi
+  const period = searchParams.get("period"); // Tarih filtresi için ek parametre
+
+  // Tarih filtresi (createdate) oluştur
+  let dateFilter = null;
+  if (period) {
+    const daysMap: Record<string, number> = {
+      "1ay": 30,
+      "6ay": 180,
+      "12ay": 365,
+      "24ay": 730,
+      "36ay": 1095,
+    };
+    const days = daysMap[period];
+    if (days) {
+      const now = new Date();
+      const past = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      dateFilter = {
+        propertyName: "createdate",
+        operator: "GTE",
+        value: past.toISOString(),
+      };
+    }
+  }
 
   try {
     let after: string | undefined = undefined;
     let hasMore = true;
     let allDeals: any[] = [];
-
-    // HubSpot API'dan deal'ları topla
+    // Tüm deal'ları döngüyle topla
     while (hasMore) {
+      // Filtre setini hazırla
+      const filters = [
+        { propertyName: "pipeline", operator: "EQ", value: pipelineId },
+      ];
+      if (dateFilter) filters.push(dateFilter);
+
       const body: any = {
-        filterGroups: [
-          { filters: [{ propertyName: "pipeline", operator: "EQ", value: pipelineId }] }
-        ],
+        filterGroups: [{ filters }],
         properties: ["hubspot_owner_id", "amount", "createdate"],
         limit: 100,
       };
@@ -69,29 +91,12 @@ export async function GET(req: NextRequest) {
       hasMore = !!after;
     }
 
-    // Eğer period (örn. "1ay", "6ay") parametresi gelirse, o kadar geriye gidip filtrele
-    let filteredDeals = allDeals;
-    if (period) {
-      const now = new Date();
-      let startDate = new Date();
-      if (period === "1ay") startDate.setMonth(now.getMonth() - 1);
-      else if (period === "6ay") startDate.setMonth(now.getMonth() - 6);
-      else if (period === "12ay") startDate.setFullYear(now.getFullYear() - 1);
-      else if (period === "24ay") startDate.setFullYear(now.getFullYear() - 2);
-      else if (period === "36ay") startDate.setFullYear(now.getFullYear() - 3);
-
-      filteredDeals = allDeals.filter(d => {
-        const created = d.properties?.createdate ? new Date(Number(d.properties.createdate)) : null;
-        return created && created >= startDate;
-      });
-    }
-
-    // Owner map’i çek
+    // Owner isim haritasını çek
     const ownerMap = await fetchOwners();
 
     // Owner'a göre grupla
     const stats: Record<string, { count: number; totalAmount: number }> = {};
-    filteredDeals.forEach(deal => {
+    allDeals.forEach((deal) => {
       const ownerId = deal.properties?.hubspot_owner_id || "Bilinmeyen";
       const amount = parseFloat(deal.properties?.amount || "0") || 0;
       if (!stats[ownerId]) stats[ownerId] = { count: 0, totalAmount: 0 };
@@ -99,6 +104,7 @@ export async function GET(req: NextRequest) {
       stats[ownerId].totalAmount += amount;
     });
 
+    // Dönüş listesi
     const result = Object.entries(stats).map(([ownerId, d]) => ({
       ownerId,
       ownerName: ownerMap[ownerId] || ownerId,
