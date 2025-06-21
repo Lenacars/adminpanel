@@ -2,21 +2,14 @@
 
 import { useEffect, useState } from "react";
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Legend,
+  BarChart, Bar,
+  LineChart, Line,
+  AreaChart, Area,
+  ComposedChart,
+  PieChart, Pie, Cell,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from "recharts";
 
-// Filtre seçenekleri
 const filters = [
   { key: "1ay", label: "Son 1 Ay" },
   { key: "6ay", label: "Son 6 Ay" },
@@ -25,16 +18,22 @@ const filters = [
   { key: "36ay", label: "Son 36 Ay" },
 ];
 
-// Grafik tipi seçenekleri
+// Grafik seçenekleri
 const chartTypes = [
   { key: "bar", label: "Çubuk Grafik" },
   { key: "line", label: "Çizgi Grafik" },
   { key: "area", label: "Alan Grafik" },
+  { key: "composed", label: "Kombine Grafik" },
+  { key: "pie", label: "Pasta Grafik" }
 ];
 
-const CORPORATE_COLOR = "#6A3C96";
+// Renkler
+const CORPORATE_COLOR = "#522e7b";
 const CORPORATE_COLOR_LIGHT = "#9a6cb6";
-const CORPORATE_COLOR_DARK = "#4d296b";
+const CORPORATE_COLOR_DARK = "#3c2057";
+const PIE_COLORS = [
+  "#522e7b", "#9a6cb6", "#d1b3ff", "#b8b7ff", "#4c51bf", "#7e22ce", "#7c3aed"
+];
 
 export default function RaporlamaPage() {
   const [stats, setStats] = useState<any[]>([]);
@@ -55,7 +54,7 @@ export default function RaporlamaPage() {
         setLoading(false);
         setError(null);
       })
-      .catch((err) => {
+      .catch(() => {
         setError("Veriler yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.");
         setLoading(false);
       });
@@ -68,7 +67,6 @@ export default function RaporlamaPage() {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="flex justify-center items-center h-screen bg-red-50 text-red-700 border border-red-300 rounded-lg p-6 m-4 shadow-md">
@@ -76,7 +74,6 @@ export default function RaporlamaPage() {
       </div>
     );
   }
-
   if (!stats.length) {
     return (
       <div className="flex justify-center items-center h-screen bg-yellow-50 text-yellow-700 border border-yellow-300 rounded-lg p-6 m-4 shadow-md">
@@ -85,7 +82,11 @@ export default function RaporlamaPage() {
     );
   }
 
-  // Grafik komponentini seçici fonksiyon
+  // PieChart için label
+  const renderPieLabel = (entry: any) =>
+    `${entry.name} (${entry.count})`;
+
+  // Dinamik grafik render fonksiyonu
   function renderChart() {
     const chartProps = {
       data: stats,
@@ -213,8 +214,8 @@ export default function RaporlamaPage() {
               type="monotone"
               dataKey="count"
               stroke={CORPORATE_COLOR}
-              fill={CORPORATE_COLOR_LIGHT}
-              fillOpacity={0.3}
+              fill={CORPORATE_COLOR}
+              fillOpacity={0.25}
               name="Anlaşma Adedi"
             />
             <Area
@@ -223,10 +224,56 @@ export default function RaporlamaPage() {
               dataKey="totalAmount"
               stroke={CORPORATE_COLOR_LIGHT}
               fill={CORPORATE_COLOR_LIGHT}
-              fillOpacity={0.6}
+              fillOpacity={0.18}
               name="Toplam Tutar"
             />
           </AreaChart>
+        );
+      case "composed":
+        return (
+          <ComposedChart {...chartProps}>
+            {sharedElements}
+            <Bar
+              yAxisId="left"
+              dataKey="count"
+              fill={CORPORATE_COLOR}
+              name="Anlaşma Adedi"
+              barSize={24}
+              radius={[4, 4, 0, 0]}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="totalAmount"
+              stroke={CORPORATE_COLOR_LIGHT}
+              strokeWidth={3}
+              name="Toplam Tutar"
+              dot={{ r: 6 }}
+            />
+          </ComposedChart>
+        );
+      case "pie":
+        return (
+          <PieChart width={600} height={430}>
+            <Tooltip />
+            <Legend verticalAlign="bottom" iconType="circle" />
+            <Pie
+              data={stats}
+              dataKey="count"
+              nameKey="name"
+              cx="50%"
+              cy="48%"
+              outerRadius={170}
+              innerRadius={60}
+              label={renderPieLabel}
+              labelLine={false}
+              isAnimationActive
+            >
+              {stats.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+          </PieChart>
         );
       default:
         return null;
@@ -264,28 +311,6 @@ export default function RaporlamaPage() {
         ))}
       </section>
 
-      {/* Grafik tipi seçim butonları */}
-      <section className="mb-8 flex justify-center gap-3 flex-wrap">
-        {chartTypes.map((ct) => (
-          <button
-            key={ct.key}
-            className={`px-6 py-2 rounded-full font-semibold transition-all duration-300 ease-in-out shadow-sm
-              ${selectedChart === ct.key
-                ? "text-white shadow-lg transform scale-105"
-                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400"
-              }`}
-            style={{
-                backgroundColor: selectedChart === ct.key ? CORPORATE_COLOR_DARK : undefined,
-                color: selectedChart === ct.key ? 'white' : CORPORATE_COLOR_DARK,
-                borderColor: selectedChart === ct.key ? undefined : CORPORATE_COLOR_LIGHT,
-            }}
-            onClick={() => setSelectedChart(ct.key)}
-          >
-            {ct.label}
-          </button>
-        ))}
-      </section>
-
       <div className="max-w-7xl mx-auto">
         {/* Özet Kutuları */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -313,11 +338,34 @@ export default function RaporlamaPage() {
           ))}
         </section>
 
-        {/* Grafik Alanı */}
-        <section className="bg-white rounded-2xl shadow-xl p-6 md:p-10 mb-8" style={{ height: 600 }}>
+        {/* Başlık + Grafik Tipi Butonları */}
+        <section className="bg-white rounded-2xl shadow-xl p-6 md:p-10 mb-8" style={{ height: 650 }}>
           <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: CORPORATE_COLOR_DARK }}>
             Aşama Bazlı Anlaşma Dağılımı
           </h2>
+          {/* Grafik Tipi Butonları */}
+          <div className="flex justify-center gap-4 mb-6">
+            {chartTypes.map((ct) => (
+              <button
+                key={ct.key}
+                className={`px-6 py-2 rounded-full font-semibold border transition-all duration-200
+                ${selectedChart === ct.key
+                  ? "text-white"
+                  : `bg-white text-[${CORPORATE_COLOR_DARK}]`
+                }`}
+                style={{
+                  backgroundColor: selectedChart === ct.key ? CORPORATE_COLOR : "white",
+                  color: selectedChart === ct.key ? "white" : CORPORATE_COLOR_DARK,
+                  borderColor: CORPORATE_COLOR,
+                  boxShadow: selectedChart === ct.key ? "0 2px 8px rgba(80,40,130,0.12)" : "none",
+                }}
+                onClick={() => setSelectedChart(ct.key)}
+              >
+                {ct.label}
+              </button>
+            ))}
+          </div>
+          {/* Grafik */}
           <ResponsiveContainer width="100%" height={500}>
             {renderChart()}
           </ResponsiveContainer>
