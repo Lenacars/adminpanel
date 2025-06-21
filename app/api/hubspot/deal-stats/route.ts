@@ -14,20 +14,21 @@ const stageMap = {
   "closedlost": "Kaybetti",
 };
 
-// Yardımcı: Ayları ms olarak hesapla
+// Yardımcı: Başlangıç tarihini filtreye göre bul
 const getStartDate = (period: string) => {
   const now = new Date();
   let past: Date;
   if (period === "1ay") past = new Date(now.setMonth(now.getMonth() - 1));
   else if (period === "6ay") past = new Date(now.setMonth(now.getMonth() - 6));
   else if (period === "12ay") past = new Date(now.setMonth(now.getMonth() - 12));
+  else if (period === "24ay") past = new Date(now.setMonth(now.getMonth() - 24));
+  else if (period === "36ay") past = new Date(now.setMonth(now.getMonth() - 36));
   else past = new Date(now.setMonth(now.getMonth() - 1)); // default: son 1 ay
   return past.getTime();
 };
 
 export async function GET(req: NextRequest) {
   try {
-    // URL’den “period” parametresini oku (ör: ?period=6ay)
     const period = req.nextUrl.searchParams.get("period") || "1ay";
     const startDate = getStartDate(period);
 
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
           },
         ],
         properties: ["amount"],
-        limit: 100, // Yine sayfalama koyulabilir!
+        limit: 100,
       };
 
       let after = undefined;
