@@ -32,6 +32,9 @@ const chartTypes = [
 const CORPORATE_COLOR = "#6A3C96";
 const CORPORATE_COLOR_LIGHT = "#9a6cb6";
 const CORPORATE_COLOR_DARK = "#4d296b";
+const KPI_BG = "#F4EFFC";
+
+// Pasta Grafik Renkleri
 const PIE_COLORS = [
   CORPORATE_COLOR,
   CORPORATE_COLOR_LIGHT,
@@ -42,6 +45,24 @@ const PIE_COLORS = [
   "#3f225e"
 ];
 
+// Kaynak Analizi için KPI verisi çıkaran fonksiyon
+function getSourceKpis(stats: any[]) {
+  const totalDeals = stats.reduce((sum, s) => sum + (s.count || 0), 0);
+  const totalAmount = stats.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+
+  // En yüksek tutara sahip kaynağı bul
+  const highestSource = stats.reduce((maxSource, currentSource) => {
+    return (currentSource.totalAmount || 0) > (maxSource.totalAmount || 0) ? currentSource : maxSource;
+  }, { sourceName: "-", totalAmount: 0 }); // Başlangıç değeri
+
+  return {
+    totalDeals,
+    totalAmount,
+    highestSourceAmount: highestSource.totalAmount,
+    highestSourceName: highestSource.sourceName,
+  };
+}
+
 export default function KaynakAnaliziPage() {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,33 +70,41 @@ export default function KaynakAnaliziPage() {
   const [selectedFilter, setSelectedFilter] = useState("1ay");
   const [selectedChart, setSelectedChart] = useState("bar");
 
-  // KPI hesapları
-  const toplamAnlasma = stats.reduce((acc, x) => acc + (x.count || 0), 0);
-  const toplamCiro = stats.reduce((acc, x) => acc + (x.totalAmount || 0), 0);
-  const enYuksek = stats.reduce((max, x) => (x.totalAmount > max ? x.totalAmount : max), 0);
-  const enCokGetiren = stats.find(x => x.totalAmount === enYuksek)?.sourceName || "-";
-
   useEffect(() => {
     setLoading(true);
+    // API endpoint'inin doğru olduğundan emin olun: deal-stats-by-source
     fetch(`/api/hubspot/deal-stats-by-source?period=${selectedFilter}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Sunucudan yanıt alınamadı. Lütfen API endpoint'inizi kontrol edin.");
+        }
+        return res.json();
+      })
       .then((data) => {
+        // API'den gelen verinin yapısını burada kontrol edin!
+        // console.log("API'dan gelen KAYNAK ANALİZİ verisi:", data); 
+        
         if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+          // stats içindeki her nesnenin 'sourceName', 'count', 'totalAmount' alanlarını içerdiğinden emin olun.
           setStats(data.data);
           setError(null);
         } else {
           setStats([]);
-          setError("Gösterilecek veri bulunamadı.");
+          setError("Seçili döneme ait kaynak verisi bulunamadı.");
         }
         setLoading(false);
       })
-      .catch(() => {
-        setError("Veriler yüklenirken hata oluştu.");
+      .catch((err) => {
+        console.error("Veri çekme hatası:", err);
+        setError("Veriler yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.");
         setLoading(false);
       });
   }, [selectedFilter]);
 
-  // PieChart özel label fonksiyonu
+  // KPI hesaplama
+  const kpis = getSourceKpis(stats);
+
+  // PieChart özel label fonksiyonu (yüzde olarak gösterim)
   const renderPieLabel = ({ name, percent }: any) =>
     `${name} (${(percent * 100).toFixed(0)}%)`;
 
@@ -83,6 +112,7 @@ export default function KaynakAnaliziPage() {
   function renderChart() {
     const chartProps = {
       data: stats,
+      // X ekseni etiketleri için yeterli alt boşluk ayarı
       margin: { top: 20, right: 50, left: 40, bottom: 120 },
     };
 
@@ -92,24 +122,27 @@ export default function KaynakAnaliziPage() {
           <BarChart {...chartProps} barCategoryGap={30} barGap={4}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis
-              dataKey="sourceName"
-              angle={-30}
+              dataKey="sourceName" // Kaynak analizi için dataKey 'sourceName' olmalı
+              angle={-45} // Etiket eğimini artır
               textAnchor="end"
-              height={100}
-              interval={0}
-              tick={{ fill: "#555", fontSize: 15, fontWeight: 500 }}
+              height={120} // X ekseni için daha fazla yükseklik
+              interval={0} // Tüm etiketleri göster
+              tickFormatter={(value) =>
+                value.length > 15 ? value.substring(0, 15) + "..." : value // Uzun etiketleri kısalt
+              }
+              tick={{ fill: "#555", fontSize: 12 }} // Font boyutunu küçült
             />
             <YAxis
               yAxisId="left"
               orientation="left"
               stroke={CORPORATE_COLOR}
-              tick={{ fill: "#555", fontSize: 13 }}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
-                value: "Adet",
+                value: "Anlaşma Adedi",
                 angle: -90,
                 position: "insideLeft",
                 fill: CORPORATE_COLOR,
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: 700,
               }}
             />
@@ -118,13 +151,13 @@ export default function KaynakAnaliziPage() {
               orientation="right"
               stroke={CORPORATE_COLOR_LIGHT}
               tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
-              tick={{ fill: "#555", fontSize: 13 }}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
                 value: "Ciro (₺)",
                 angle: 90,
                 position: "insideRight",
                 fill: CORPORATE_COLOR_LIGHT,
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: 700,
               }}
             />
@@ -135,20 +168,11 @@ export default function KaynakAnaliziPage() {
                   return `₺${Number(value).toLocaleString("tr-TR")}`;
                 return value;
               }}
-              labelFormatter={(label) => `Kaynak: ${label}`}
-              contentStyle={{
-                borderRadius: "8px",
-                border: `1px solid ${CORPORATE_COLOR_LIGHT}`,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
+              labelFormatter={(label) => `Kaynak: ${label}`} // Tooltip etiketi 'Kaynak' olarak güncellendi
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
               itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
             />
-            <Legend
-              wrapperStyle={{ paddingTop: "20px", fontSize: 14 }}
-              iconType="circle"
-              verticalAlign="top"
-              align="center"
-            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -172,28 +196,47 @@ export default function KaynakAnaliziPage() {
           <LineChart {...chartProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis
-              dataKey="sourceName"
-              angle={-30}
+              dataKey="sourceName" // Kaynak analizi için dataKey 'sourceName' olmalı
+              angle={-45}
               textAnchor="end"
-              height={100}
+              height={120}
               interval={0}
-              tick={{ fill: "#555", fontSize: 15, fontWeight: 500 }}
+              tickFormatter={(value) =>
+                value.length > 15 ? value.substring(0, 15) + "..." : value
+              }
+              tick={{ fill: "#555", fontSize: 12 }}
             />
-            <YAxis yAxisId="left" orientation="left" stroke={CORPORATE_COLOR}
-              tick={{ fill: "#555", fontSize: 13 }}
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              stroke={CORPORATE_COLOR}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
                 value: "Adet", angle: -90, position: "insideLeft", fill: CORPORATE_COLOR, fontSize: 15, fontWeight: 700
               }}
             />
-            <YAxis yAxisId="right" orientation="right" stroke={CORPORATE_COLOR_LIGHT}
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke={CORPORATE_COLOR_LIGHT}
               tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
-              tick={{ fill: "#555", fontSize: 13 }}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
                 value: "Ciro (₺)", angle: 90, position: "insideRight", fill: CORPORATE_COLOR_LIGHT, fontSize: 15, fontWeight: 700
               }}
             />
-            <Tooltip /*...*/ />
-            <Legend /*...*/ />
+            <Tooltip
+              cursor={{ fill: "rgba(0,0,0,0.05)" }}
+              formatter={(value: any, name: string) => {
+                if (name === "Toplam Tutar" || name === "Ciro (₺)" || name === "totalAmount")
+                  return `₺${Number(value).toLocaleString("tr-TR")}`;
+                return value;
+              }}
+              labelFormatter={(label) => `Kaynak: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Line
               yAxisId="left"
               type="monotone"
@@ -219,28 +262,47 @@ export default function KaynakAnaliziPage() {
           <AreaChart {...chartProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis
-              dataKey="sourceName"
-              angle={-30}
+              dataKey="sourceName" // Kaynak analizi için dataKey 'sourceName' olmalı
+              angle={-45}
               textAnchor="end"
-              height={100}
+              height={120}
               interval={0}
-              tick={{ fill: "#555", fontSize: 15, fontWeight: 500 }}
+              tickFormatter={(value) =>
+                value.length > 15 ? value.substring(0, 15) + "..." : value
+              }
+              tick={{ fill: "#555", fontSize: 12 }}
             />
-            <YAxis yAxisId="left" orientation="left" stroke={CORPORATE_COLOR}
-              tick={{ fill: "#555", fontSize: 13 }}
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              stroke={CORPORATE_COLOR}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
                 value: "Adet", angle: -90, position: "insideLeft", fill: CORPORATE_COLOR, fontSize: 15, fontWeight: 700
               }}
             />
-            <YAxis yAxisId="right" orientation="right" stroke={CORPORATE_COLOR_LIGHT}
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke={CORPORATE_COLOR_LIGHT}
               tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
-              tick={{ fill: "#555", fontSize: 13 }}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
                 value: "Ciro (₺)", angle: 90, position: "insideRight", fill: CORPORATE_COLOR_LIGHT, fontSize: 15, fontWeight: 700
               }}
             />
-            <Tooltip /*...*/ />
-            <Legend /*...*/ />
+            <Tooltip
+              cursor={{ fill: "rgba(0,0,0,0.05)" }}
+              formatter={(value: any, name: string) => {
+                if (name === "Toplam Tutar" || name === "Ciro (₺)" || name === "totalAmount")
+                  return `₺${Number(value).toLocaleString("tr-TR")}`;
+                return value;
+              }}
+              labelFormatter={(label) => `Kaynak: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Area
               yAxisId="left"
               type="monotone"
@@ -266,28 +328,47 @@ export default function KaynakAnaliziPage() {
           <ComposedChart {...chartProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis
-              dataKey="sourceName"
-              angle={-30}
+              dataKey="sourceName" // Kaynak analizi için dataKey 'sourceName' olmalı
+              angle={-45}
               textAnchor="end"
-              height={100}
+              height={120}
               interval={0}
-              tick={{ fill: "#555", fontSize: 15, fontWeight: 500 }}
+              tickFormatter={(value) =>
+                value.length > 15 ? value.substring(0, 15) + "..." : value
+              }
+              tick={{ fill: "#555", fontSize: 12 }}
             />
-            <YAxis yAxisId="left" orientation="left" stroke={CORPORATE_COLOR}
-              tick={{ fill: "#555", fontSize: 13 }}
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              stroke={CORPORATE_COLOR}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
                 value: "Adet", angle: -90, position: "insideLeft", fill: CORPORATE_COLOR, fontSize: 15, fontWeight: 700
               }}
             />
-            <YAxis yAxisId="right" orientation="right" stroke={CORPORATE_COLOR_LIGHT}
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke={CORPORATE_COLOR_LIGHT}
               tickFormatter={(val: any) => `₺${Number(val).toLocaleString("tr-TR")}`}
-              tick={{ fill: "#555", fontSize: 13 }}
+              tick={{ fill: "#555", fontSize: 12 }}
               label={{
                 value: "Ciro (₺)", angle: 90, position: "insideRight", fill: CORPORATE_COLOR_LIGHT, fontSize: 15, fontWeight: 700
               }}
             />
-            <Tooltip /*...*/ />
-            <Legend /*...*/ />
+            <Tooltip
+              cursor={{ fill: "rgba(0,0,0,0.05)" }}
+              formatter={(value: any, name: string) => {
+                if (name === "Toplam Tutar" || name === "Ciro (₺)" || name === "totalAmount")
+                  return `₺${Number(value).toLocaleString("tr-TR")}`;
+                return value;
+              }}
+              labelFormatter={(label) => `Kaynak: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: 14 }} iconType="circle" verticalAlign="top" align="center" />
             <Bar
               yAxisId="left"
               dataKey="count"
@@ -310,12 +391,18 @@ export default function KaynakAnaliziPage() {
       case "pie":
         return (
           <PieChart width={700} height={430}>
-            <Tooltip /*...*/ />
+            <Tooltip
+              formatter={(value: any) => value}
+              labelFormatter={(label) => `Kaynak: ${label}`}
+              contentStyle={{ borderRadius: "8px", border: `1px solid ${CORPORATE_COLOR_LIGHT}`, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+              itemStyle={{ padding: "4px 0", color: CORPORATE_COLOR_DARK }}
+            />
             <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 16 }} />
             <Pie
+              // Pie chart için 'value' olarak 'count' değerini kullanıyoruz
               data={stats.map(s => ({ ...s, value: s.count }))}
               dataKey="value"
-              nameKey="sourceName"
+              nameKey="sourceName" // Kaynak adı için 'sourceName' kullanıyoruz
               cx="50%"
               cy="48%"
               outerRadius={170}
@@ -370,20 +457,24 @@ export default function KaynakAnaliziPage() {
       <div className="flex justify-center gap-8 mb-8 flex-wrap">
         <div className="bg-white shadow rounded-xl p-6 min-w-[160px] text-center border">
           <div className="text-md text-gray-500 font-medium">Toplam Anlaşma</div>
-          <div className="text-2xl font-bold" style={{ color: CORPORATE_COLOR }}>{toplamAnlasma}</div>
+          <div className="text-2xl font-bold" style={{ color: CORPORATE_COLOR }}>{kpis.totalDeals}</div>
         </div>
         <div className="bg-white shadow rounded-xl p-6 min-w-[160px] text-center border">
           <div className="text-md text-gray-500 font-medium">Toplam Ciro</div>
           <div className="text-2xl font-bold" style={{ color: CORPORATE_COLOR_LIGHT }}>
-            ₺{Number(toplamCiro).toLocaleString("tr-TR")}
+            ₺{Number(kpis.totalAmount).toLocaleString("tr-TR")}
           </div>
         </div>
         <div className="bg-white shadow rounded-xl p-6 min-w-[210px] text-center border">
           <div className="text-md text-gray-500 font-medium">En Çok Getiren Kanal</div>
-          <div className="text-xl font-bold" style={{ color: CORPORATE_COLOR_DARK }}>{enCokGetiren}</div>
-          <div className="text-md" style={{ color: CORPORATE_COLOR_LIGHT }}>
-            {enYuksek ? `₺${Number(enYuksek).toLocaleString("tr-TR")}` : ""}
+          <div className="text-xl font-bold" style={{ color: CORPORATE_COLOR_DARK }}>
+            {kpis.highestSourceName !== "-" ? kpis.highestSourceName : "Veri Yok"} {/* 'Veri Yok' mesajı eklendi */}
           </div>
+          {kpis.highestSourceAmount > 0 && ( // Sadece tutar varsa göster
+            <div className="text-md" style={{ color: CORPORATE_COLOR_LIGHT }}>
+              ₺{Number(kpis.highestSourceAmount).toLocaleString("tr-TR")}
+            </div>
+          )}
         </div>
       </div>
 
