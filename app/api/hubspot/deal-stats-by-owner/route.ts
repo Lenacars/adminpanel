@@ -23,10 +23,13 @@ async function fetchOwners(): Promise<Record<string, string>> {
 
   const map: Record<string, string> = {};
   owners.forEach((o: any) => {
-    map[o.id] =
-      o.firstName || o.lastName
-        ? `${o.firstName || ""} ${o.lastName || ""}`.trim()
-        : o.email || o.id;
+    if (o.firstName || o.lastName) {
+      map[o.id] = `${o.firstName || ""} ${o.lastName || ""}`.trim();
+    } else if (o.email) {
+      map[o.id] = o.email;
+    } else {
+      map[o.id] = o.id;
+    }
   });
   return map;
 }
@@ -34,20 +37,24 @@ async function fetchOwners(): Promise<Record<string, string>> {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const pipelineId = searchParams.get("pipelineId") || "default";
+  const period = searchParams.get("period"); // eklendi
+
   try {
     let after: string | undefined = undefined;
     let hasMore = true;
     let allDeals: any[] = [];
-    // Deal'ları topla
+
+    // HubSpot API'dan deal'ları topla
     while (hasMore) {
       const body: any = {
         filterGroups: [
           { filters: [{ propertyName: "pipeline", operator: "EQ", value: pipelineId }] }
         ],
-        properties: ["hubspot_owner_id", "amount"],
+        properties: ["hubspot_owner_id", "amount", "createdate"],
         limit: 100,
       };
       if (after) body.after = after;
+
       const res = await fetch(`${HUBSPOT_API}/crm/v3/objects/deals/search`, {
         method: "POST",
         headers: {
@@ -62,12 +69,29 @@ export async function GET(req: NextRequest) {
       hasMore = !!after;
     }
 
+    // Eğer period (örn. "1ay", "6ay") parametresi gelirse, o kadar geriye gidip filtrele
+    let filteredDeals = allDeals;
+    if (period) {
+      const now = new Date();
+      let startDate = new Date();
+      if (period === "1ay") startDate.setMonth(now.getMonth() - 1);
+      else if (period === "6ay") startDate.setMonth(now.getMonth() - 6);
+      else if (period === "12ay") startDate.setFullYear(now.getFullYear() - 1);
+      else if (period === "24ay") startDate.setFullYear(now.getFullYear() - 2);
+      else if (period === "36ay") startDate.setFullYear(now.getFullYear() - 3);
+
+      filteredDeals = allDeals.filter(d => {
+        const created = d.properties?.createdate ? new Date(Number(d.properties.createdate)) : null;
+        return created && created >= startDate;
+      });
+    }
+
     // Owner map’i çek
     const ownerMap = await fetchOwners();
 
     // Owner'a göre grupla
     const stats: Record<string, { count: number; totalAmount: number }> = {};
-    allDeals.forEach(deal => {
+    filteredDeals.forEach(deal => {
       const ownerId = deal.properties?.hubspot_owner_id || "Bilinmeyen";
       const amount = parseFloat(deal.properties?.amount || "0") || 0;
       if (!stats[ownerId]) stats[ownerId] = { count: 0, totalAmount: 0 };
