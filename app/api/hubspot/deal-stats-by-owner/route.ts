@@ -5,16 +5,28 @@ import { NextRequest, NextResponse } from "next/server";
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
 
-// Helper: HubSpot Owner isimlerini id'den çözer
-async function fetchOwners() {
-  const res = await fetch(`${HUBSPOT_API}/crm/v3/owners`, {
-    headers: { Authorization: `Bearer ${TOKEN}` },
-  });
-  const data = await res.json();
-  if (!Array.isArray(data.results)) return {};
+// Owner isimlerini çek (paginated)
+async function fetchOwners(): Promise<Record<string, string>> {
+  let after: string | undefined = undefined;
+  let owners: any[] = [];
+  do {
+    const url = new URL(`${HUBSPOT_API}/crm/v3/owners`);
+    if (after) url.searchParams.set("after", after);
+    url.searchParams.set("limit", "100");
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    const data = await res.json();
+    owners = owners.concat(data.results || []);
+    after = data.paging?.next?.after;
+  } while (after);
+
   const map: Record<string, string> = {};
-  data.results.forEach((o: any) => {
-    map[o.id] = o.email || o.firstName + " " + o.lastName || o.id;
+  owners.forEach((o: any) => {
+    map[o.id] =
+      o.firstName || o.lastName
+        ? `${o.firstName || ""} ${o.lastName || ""}`.trim()
+        : o.email || o.id;
   });
   return map;
 }
@@ -22,13 +34,11 @@ async function fetchOwners() {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const pipelineId = searchParams.get("pipelineId") || "default";
-
   try {
-    let after = undefined;
+    let after: string | undefined = undefined;
     let hasMore = true;
     let allDeals: any[] = [];
-
-    // Tüm deal'leri çek
+    // Deal'ları topla
     while (hasMore) {
       const body: any = {
         filterGroups: [
@@ -38,7 +48,6 @@ export async function GET(req: NextRequest) {
         limit: 100,
       };
       if (after) body.after = after;
-
       const res = await fetch(`${HUBSPOT_API}/crm/v3/objects/deals/search`, {
         method: "POST",
         headers: {
@@ -47,14 +56,13 @@ export async function GET(req: NextRequest) {
         },
         body: JSON.stringify(body),
       });
-
       const data = await res.json();
       if (data.results) allDeals = allDeals.concat(data.results);
       after = data.paging?.next?.after;
       hasMore = !!after;
     }
 
-    // Owner'ları çek ve map hazırla
+    // Owner map’i çek
     const ownerMap = await fetchOwners();
 
     // Owner'a göre grupla
@@ -67,12 +75,11 @@ export async function GET(req: NextRequest) {
       stats[ownerId].totalAmount += amount;
     });
 
-    // Sonuç listesi (isim, adet, toplam tutar)
-    const result = Object.entries(stats).map(([ownerId, data]) => ({
+    const result = Object.entries(stats).map(([ownerId, d]) => ({
       ownerId,
       ownerName: ownerMap[ownerId] || ownerId,
-      count: data.count,
-      totalAmount: data.totalAmount,
+      count: d.count,
+      totalAmount: d.totalAmount,
     }));
 
     return NextResponse.json({ success: true, data: result });
