@@ -1,17 +1,22 @@
-// app/api/hubspot/deal-stats-by-source/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
 
-// HubSpot'ta en çok "hs_analytics_source" veya "deal_source" alanı kullanılır.
-// Sende hangi alan varsa onu belirt.
+// Kaynak mapping örneği (gerekiyorsa)
+const sourceMap: Record<string, string> = {
+  "1": "Doğrudan Trafik",
+  "2": "Organik Arama",
+  "3": "Yönlendirme",
+  "4": "Sosyal Medya",
+  "5": "E-posta Pazarlama",
+  // Diğerleri eklenebilir
+};
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const pipelineId = searchParams.get("pipelineId") || "default";
-  const SOURCE_FIELD = "hs_analytics_source"; // Gerekirse burada alanı değiştir!
+  const pipelineId = searchParams.get("pipelineId");
+  const SOURCE_FIELD = "hs_analytics_source";
 
   try {
     let after = undefined;
@@ -20,9 +25,9 @@ export async function GET(req: NextRequest) {
 
     while (hasMore) {
       const body: any = {
-        filterGroups: [
-          { filters: [{ propertyName: "pipeline", operator: "EQ", value: pipelineId }] }
-        ],
+        filterGroups: pipelineId
+          ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: pipelineId }] }]
+          : [],
         properties: [SOURCE_FIELD, "amount"],
         limit: 100,
       };
@@ -46,15 +51,16 @@ export async function GET(req: NextRequest) {
     // Kaynağa göre grupla
     const stats: Record<string, { count: number; totalAmount: number }> = {};
     allDeals.forEach(deal => {
-      const source = deal.properties?.[SOURCE_FIELD] || "Bilinmeyen";
+      const rawSource = deal.properties?.[SOURCE_FIELD] || "Bilinmeyen";
+      const sourceName = sourceMap[rawSource] || rawSource;
       const amount = parseFloat(deal.properties?.amount || "0") || 0;
-      if (!stats[source]) stats[source] = { count: 0, totalAmount: 0 };
-      stats[source].count += 1;
-      stats[source].totalAmount += amount;
+      if (!stats[sourceName]) stats[sourceName] = { count: 0, totalAmount: 0 };
+      stats[sourceName].count += 1;
+      stats[sourceName].totalAmount += amount;
     });
 
-    const result = Object.entries(stats).map(([source, data]) => ({
-      source,
+    const result = Object.entries(stats).map(([sourceName, data]) => ({
+      sourceName,
       count: data.count,
       totalAmount: data.totalAmount,
     }));
