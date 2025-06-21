@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-// Filtre seçenekleri
+// Filtre seçenekleri (24 ve 36 ay dahil)
 const filters = [
   { key: "1ay", label: "Son 1 Ay" },
   { key: "6ay", label: "Son 6 Ay" },
   { key: "12ay", label: "Son 12 Ay" },
+  { key: "24ay", label: "Son 24 Ay" },
+  { key: "36ay", label: "Son 36 Ay" },
 ];
 
 export default function RaporlamaPage() {
@@ -15,7 +17,6 @@ export default function RaporlamaPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState("1ay");
 
-  // Filtre değişince yeniden veri çek
   useEffect(() => {
     setLoading(true);
     fetch(`/api/hubspot/deal-stats?period=${selectedFilter}`)
@@ -37,7 +38,7 @@ export default function RaporlamaPage() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-6">HubSpot Anlaşma Özeti</h1>
-      <div className="mb-4 flex gap-4">
+      <div className="mb-4 flex gap-4 flex-wrap">
         {filters.map((f) => (
           <button
             key={f.key}
