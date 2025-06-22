@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 const HUBSPOT_API = "https://api.hubapi.com";
 const TOKEN = process.env.HUBSPOT_PRIVATE_TOKEN!;
 
-// Manuel UserId - İsim map'i (güncellenebilir)
+// Pipeline ID'nizi buraya yazın.
+const PIPELINE_ID = "12060148"; // Örnek: "12060148", kendi pipeline ID'nizi buraya girin
+
 const USER_MAP: Record<string, string> = {
   "26.066.921": "LenaCars",
   "46.165.993": "BUDAK EMRE",
@@ -28,21 +30,23 @@ const USER_MAP: Record<string, string> = {
   "46.164.692": "Canser Seven",
 };
 
-function getPeriodStart(period: string): Date | null {
+function getPeriodStart(period: string): number | null {
   const now = new Date();
   switch (period) {
-    case "1ay": return new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    case "6ay": return new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-    case "12ay": return new Date(now.getFullYear(), now.getMonth() - 12, now.getDate());
-    case "24ay": return new Date(now.getFullYear(), now.getMonth() - 24, now.getDate());
-    case "36ay": return new Date(now.getFullYear(), now.getMonth() - 36, now.getDate());
+    case "1ay": now.setMonth(now.getMonth() - 1); break;
+    case "6ay": now.setMonth(now.getMonth() - 6); break;
+    case "12ay": now.setMonth(now.getMonth() - 12); break;
+    case "24ay": now.setMonth(now.getMonth() - 24); break;
+    case "36ay": now.setMonth(now.getMonth() - 36); break;
     default: return null;
   }
+  return now.getTime();
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const pipelineId = searchParams.get("pipelineId") || "default";
+  // Burada pipelineId queryden geliyorsa kullan, gelmiyorsa PIPELINE_ID sabitini kullan.
+  const pipelineId = searchParams.get("pipelineId") || PIPELINE_ID;
   const period = searchParams.get("period") || "1ay";
   const minDate = getPeriodStart(period);
 
@@ -54,7 +58,15 @@ export async function GET(req: NextRequest) {
     while (hasMore) {
       const body: any = {
         filterGroups: [
-          { filters: [{ propertyName: "pipeline", operator: "EQ", value: pipelineId }] }
+          {
+            filters: [
+              { propertyName: "pipeline", operator: "EQ", value: pipelineId },
+              // Tarih filtresini buraya API seviyesinde ekle
+              ...(minDate
+                ? [{ propertyName: "createdate", operator: "GTE", value: minDate }]
+                : [])
+            ]
+          }
         ],
         properties: ["hubspot_owner_id", "amount", "createdate"],
         limit: 100,
@@ -75,20 +87,9 @@ export async function GET(req: NextRequest) {
       hasMore = !!after;
     }
 
-    // Tarih filtresi uygula
-    let filteredDeals = allDeals;
-    if (minDate) {
-      filteredDeals = allDeals.filter(deal => {
-        const rawDate = deal.properties?.createdate;
-        if (!rawDate) return false;
-        const dt = isNaN(Number(rawDate)) ? new Date(rawDate) : new Date(Number(rawDate));
-        return dt >= minDate;
-      });
-    }
-
     // Owner'a göre grupla
     const stats: Record<string, { count: number; totalAmount: number }> = {};
-    filteredDeals.forEach(deal => {
+    allDeals.forEach(deal => {
       const ownerId = deal.properties?.hubspot_owner_id || "Bilinmeyen";
       const amount = parseFloat(deal.properties?.amount || "0") || 0;
       if (!stats[ownerId]) stats[ownerId] = { count: 0, totalAmount: 0 };
